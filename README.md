@@ -7,18 +7,18 @@
 只需将/Shaders/GenshinCelShaderURP/路径下解压对应版本的文件夹到你的Assets即可在材质球中看到添加的shader。
 在开始之前，你至少需要准备如下的贴图，如果不知道如何获取他们，可以参考B站 @小二今天吃啥啊 的这个教程，[链接](https://www.bilibili.com/video/BV1t34y1H7jt/)
 
-![图片](https://github.com/Gaolingx/GenshinCelShaderURP/tree/main/Pictures/v2-ddd69ef9b770627bb601ebe380ce19ec_r.jpg)
+![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/v2-ddd69ef9b770627bb601ebe380ce19ec_r.jpg)
 > (1)RGBA通道的身体Base Map (2)RGBA通道的身体Light Map(ILM Map) (3)身体Shadow Ramp (4)面部Base Map (5)面部阴影SDF阈值图 (6)头发Base Map (7)RGBA通道的头发LightMap(ILM Map) (8)头发ShadowRamp (9)面部阴影Mask (10)金属光泽Map
 
 ### 贴图示例：
 > 一般  
-![图片](https://github.com/Gaolingx/GenshinCelShaderURP/tree/main/Pictures/Example01.PNG)  
-![图片](https://github.com/Gaolingx/GenshinCelShaderURP/tree/main/Pictures/Example02.PNG)  
-![图片](https://github.com/Gaolingx/GenshinCelShaderURP/tree/main/Pictures/Example03.PNG)  
+![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/Example01.PNG)  
+![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/Example02.PNG)  
+![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/Example03.PNG)  
   
 > 脸部  
-![图片](https://github.com/Gaolingx/GenshinCelShaderURP/tree/main/Pictures/Example04.PNG)  
-![图片](https://github.com/Gaolingx/GenshinCelShaderURP/tree/main/Pictures/Example05.PNG)  
+![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/Example04.PNG)  
+![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/Example05.PNG)  
 
 ## For Sample Models
 示例用的模型和贴图附在/Model路径下，模型来源：模之屋，[链接](https://www.aplaybox.com/details/model/xuBcQCqsVWfC)可以用于结合我的shader进行测试，模型最终解释权归mihoyo所有，切勿商用。

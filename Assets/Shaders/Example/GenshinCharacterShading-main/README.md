@@ -1,0 +1,2 @@
+# GenshinCharacterShading
+通过编写一个仿原神渲染的shader，来学习URP和卡通渲染相关知识

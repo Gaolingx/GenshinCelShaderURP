@@ -1,4 +1,4 @@
-﻿Shader "GenshinCharacterShaderZhihuVer"
+﻿Shader "GenshinCharacterShaderZhihuVer(old)"
 {
     Properties
     {

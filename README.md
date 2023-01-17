@@ -27,35 +27,40 @@
 
 # Thanks
 鸣谢以下大佬们提交的代码（排名不分先后）：
-1、[Zzzzohar](https://github.com/Zzzzohar)（Generate Ramp Texture Tool）
-[https://github.com/Zzzzohar/Ramp-Tools](https://github.com/Zzzzohar/Ramp-Tools)
-2、[ashyukiha](https://github.com/ashyukiha)（shader菲涅尔边缘光、sdf面部阴影、Emission、Bloom、AlphaClipping)
-[https://github.com/ashyukiha/GenshinCharacterShaderZhihuVer](https://github.com/ashyukiha/GenshinCharacterShaderZhihuVer)
-3、[ColinLeung-NiloCat](https://github.com/ColinLeung-NiloCat)（shader卡通描边outline）
-[https://github.com/ColinLeung-NiloCat/UnityURPToonLitShaderExample](https://github.com/ColinLeung-NiloCat/UnityURPToonLitShaderExample)
-4、[YuiLu](https://github.com/YuiLu)（shader ramp漫反射及tex采样、头发裁边视角高光、金属高光、屏幕空间深度等宽边缘光）
+  
+1、[Zzzzohar](https://github.com/Zzzzohar)（Generate Ramp Texture Tool）  
+[https://github.com/Zzzzohar/Ramp-Tools](https://github.com/Zzzzohar/Ramp-Tools)  
+  
+2、[ashyukiha](https://github.com/ashyukiha)（shader菲涅尔边缘光、sdf面部阴影、Emission、Bloom、AlphaClipping)  
+[https://github.com/ashyukiha/GenshinCharacterShaderZhihuVer](https://github.com/ashyukiha/GenshinCharacterShaderZhihuVer)  
+  
+3、[ColinLeung-NiloCat](https://github.com/ColinLeung-NiloCat)（shader卡通描边outline）  
+[https://github.com/ColinLeung-NiloCat/UnityURPToonLitShaderExample](https://github.com/ColinLeung-NiloCat/UnityURPToonLitShaderExample)  
+  
+4、[YuiLu](https://github.com/YuiLu)（shader ramp漫反射及tex采样、头发裁边视角高光、金属高光、屏幕空间深度等宽边缘光）  
 [https://github.com/YuiLu/GenshinCharacterShading](https://github.com/YuiLu/GenshinCharacterShading)
 
 # Future
-我们未来预计将在现有版本的基础上加入以下新特性：
-1、使用LightMap的Alpha通道（也有可能是顶点色）制作了彩色的描边，仅限皮肤区域。
-2、新增基于崩坏三lightmap的双层阴影方案，并保留原有的漫反射计算方案。
-3、基于后处理的头发刘海投影。
-4、面部和身体的法线贴图。
-5、AutoColor自动着色（简单理解就是通过不断采样环境光和间接光源的颜色叠加到basecolor上面，这样角色的亮部和暗部做到与环境统一的效果，并设置阈值防止过曝或欠曝，而且支持多光源并可以随环境实时变化（依靠C#脚本实现））。
-6、改进基于PBR并适用于卡通渲染的光照模型。（重点）
-7、彩色描边。
-8、改进边缘光，新增屏幕空间深度等宽边缘光的特性（用于处理屏幕空间的边缘光）。
-9、使用顶点色及输入的纹理调节阴影显示。
-10、随视角变化的头发高光。
-11、优化二分阴影平滑度，减少锯齿。
-12、延迟渲染适配。
-13、SRP批次优化。
+我们未来预计将在现有版本的基础上加入以下新特性：  
+1、使用LightMap的Alpha通道（也有可能是顶点色）制作了彩色的描边，仅限皮肤区域。  
+2、新增基于崩坏三lightmap的双层阴影方案，并保留原有的漫反射计算方案。  
+3、基于后处理的头发刘海投影。  
+4、面部和身体的法线贴图。  
+5、AutoColor自动着色（简单理解就是通过不断采样环境光和间接光源的颜色叠加到basecolor上面，这样角色的亮部和暗部做到与环境统一的效果，并设置阈值防止过曝或欠曝，而且支持多光源并可以随环境实时变化（依靠C#脚本实现））。  
+6、改进基于PBR并适用于卡通渲染的光照模型。（重点）  
+7、彩色描边。  
+8、改进边缘光，新增屏幕空间深度等宽边缘光的特性（用于处理屏幕空间的边缘光）。  
+9、使用顶点色及输入的纹理调节阴影显示。  
+10、随视角变化的头发高光。  
+11、优化二分阴影平滑度，减少锯齿。  
+12、延迟渲染适配。  
+13、SRP批次优化。  
 
 # Rules
-为了规范项目的使用，你可以将其用于...
-卡通渲染相关知识学习、了解HLSL基本语法结构、个人独立游戏开发（相关代码需要开源）、根据自己需求定制修改源码、MMD等影视制作（借物表必须注明Thanks名单中的名字（可以不写我的名字））
-请不要用于...
+为了规范项目的使用，你可以将其用于...  
+卡通渲染相关知识学习、了解HLSL基本语法结构、个人独立游戏开发（相关代码需要开源）、根据自己需求定制修改源码、MMD等影视制作（借物表必须注明Thanks名单中的名字（可以不写我的名字））  
+  
+请不要用于...  
 二次贩售、二次发布等具有商业目的以及违反GPL开源许可证的行为
 
 # End

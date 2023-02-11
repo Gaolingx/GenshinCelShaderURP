@@ -467,8 +467,8 @@
                 Light mainLight =  GetMainLight();                  //获取主光源
                 float4 LightColor = float4(mainLight.color, 1);     //获取主光源颜色
 
-                half3 ShadowColor = baseColor.rgb * _ShadowMultColor.rgb;                           //亮部颜色
-                half3 DarkShadowColor = baseColor.rgb * _DarkShadowMultColor.rgb;                   //暗部颜色  
+                half3 ShadowColor = baseColor.rgb;                           //亮部颜色，这里而我们选取主光源颜色作为亮部颜色
+                half3 DarkShadowColor = baseColor.rgb * _DarkShadowMultColor.rgb;                   //暗部颜色，这里为了便于美术后期调整阴影颜色，我们在baseColor上叠加_DarkShadowMultColor.rgb
 
                 float3 shadowTestPosWS = input.positionWS + mainLight.direction * _ReceiveShadowMappingPosOffset;
                 #ifdef _MAIN_LIGHT_SHADOWS
@@ -562,7 +562,7 @@
 
                     float3 BaseMapShadowed = lerp(baseColor.rgb * finalRamp , baseColor.rgb, ShadowAOMask);              //分布Ramp 
 
-                    BaseMapShadowed = lerp(baseColor.rgb, BaseMapShadowed, _ShadowRampLerp);                            //阴影强度
+                    BaseMapShadowed = lerp(baseColor.rgb * _ShadowMultColor.rgb, BaseMapShadowed * _DarkShadowMultColor.rgb, _ShadowRampLerp);                            //阴影强度
 
                     float IsBrightSide = ShadowAOMask * step(_LightThreshold, halfLambert);                             //获得亮部、暗部分布
 

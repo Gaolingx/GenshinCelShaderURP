@@ -465,7 +465,7 @@
                     baseColor.a = 0;
                 }
                 Light mainLight =  GetMainLight();                  //获取主光源
-                float4 LightColor = float4(mainLight.color, 1);     //获取主光源颜色
+                float4 LightColor = float4(mainLight.color.rgb, 1);     //获取主光源颜色
 
                 half3 ShadowColor = baseColor.rgb;                           //亮部颜色，这里而我们选取主光源颜色作为亮部颜色
                 half3 DarkShadowColor = baseColor.rgb * _DarkShadowMultColor.rgb;                   //暗部颜色，这里为了便于美术后期调整阴影颜色，我们在baseColor上叠加_DarkShadowMultColor.rgb
@@ -568,7 +568,7 @@
 
                     float3 Diffuse = lerp(lerp(BaseMapShadowed, baseColor.rgb * finalRamp, _RampAOLerp) * _DarkIntensity ,
                     _BrightIntensity * BaseMapShadowed ,                                                                //分开亮部
-                    IsBrightSide * _RampIntensity ) * _CharacterIntensity * LightColor.rgb;
+                    IsBrightSide * _RampIntensity ) * _CharacterIntensity ;
                     
 
                     float3 finalRGB = Diffuse;
@@ -696,7 +696,7 @@
 
                 FinalColor = SpecDiffuse + Rim + RimColors + Emission.a * Emission + SpecRimEmission.a * SpecRimEmission;
 
-                FinalColor = (_WorldLightInfluence * _MainLightColor * FinalColor + (1 - _WorldLightInfluence) * FinalColor);
+                FinalColor = (_WorldLightInfluence * LightColor * FinalColor + (1 - _WorldLightInfluence) * FinalColor);
 
                 return FinalColor;
             }

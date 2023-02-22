@@ -61,6 +61,7 @@
         _RampIntensity ("Ramp Intensity", Range(0.0, 1.0)) = 1.0
         _BrightIntensity ("Bright  Intensity", Range(0.0, 1.0)) = 1.0
         _DarkIntensity ("Dark Intensity", Range(0.0, 1.0)) = 1.0
+        _FaceDarkIntensity ("Face Dark Intensity", Range(0.0, 2.0)) = 1.0
         _ShadowColor ("Ramp Shadow Color", Color) = (1.0, 1.0, 1.0, 1.0)
         [Space(30)]
 
@@ -174,9 +175,9 @@
             half _RangeAO;
             float _CharacterIntensity;
             float _RampIntensity;
-            float _LightThreshold;
             float _BrightIntensity;
             float _DarkIntensity;
+            float _FaceDarkIntensity;
             half4 _ShadowColor;
 
             float3 _ShadowMultColor;
@@ -466,7 +467,7 @@
                 Light mainLight =  GetMainLight();                  //获取主光源
                 float4 LightColor = float4(mainLight.color.rgb, 1);     //获取主光源颜色
 
-                half3 ShadowColor = baseColor.rgb;                           //亮部颜色，这里而我们选取主光源颜色作为亮部颜色
+                half3 ShadowColor = baseColor.rgb * _ShadowMultColor;                           //亮部颜色，这里而我们选取主光源颜色作为亮部颜色
                 half3 DarkShadowColor = baseColor.rgb * _DarkShadowMultColor.rgb;                   //暗部颜色，这里为了便于美术后期调整阴影颜色，我们在baseColor上叠加_DarkShadowMultColor.rgb
 
                 float3 shadowTestPosWS = input.positionWS + mainLight.direction * _ReceiveShadowMappingPosOffset;
@@ -531,7 +532,7 @@
 
                     float2 RampUV = float2(RampX, RampY);
                     float4 rampColor = SAMPLE_TEXTURE2D(_RampMap, sampler_RampMap, RampUV);
-                    half4 FinalRamp = lerp(rampColor * baseColor * _ShadowColor * _DarkIntensity, baseColor, step(_RampShadowRange, halfLambert * ShadowAO * _RangeAO) * _BrightIntensity);
+                    half3 FinalRamp = lerp(rampColor * DarkShadowColor.rgb *_DarkIntensity, baseColor, step(_RampShadowRange, halfLambert * ShadowAO * _RangeAO) * _BrightIntensity);
 
                     //— — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — —
                     // Hair Ramp
@@ -542,10 +543,10 @@
                         RampY = RampPixelY * (17 - 2 * lerp(1, 3, step(0.5, LayerMask)));
                         RampUV = float2(RampX, RampY);
                         rampColor = SAMPLE_TEXTURE2D(_RampMap, sampler_RampMap, RampUV);
-                        FinalRamp = lerp(rampColor * baseColor * _ShadowColor * _DarkIntensity, baseColor, step(_RampShadowRange, halfLambert * ShadowAO * _RangeAO) * _BrightIntensity);
+                        FinalRamp = lerp(rampColor * DarkShadowColor.rgb * _DarkIntensity, baseColor, step(_RampShadowRange, halfLambert * ShadowAO * _RangeAO) * _BrightIntensity);
                     #endif
 
-                    half3 RampShadowColor = FinalRamp * DarkShadowColor * _CharacterIntensity;
+                    half3 RampShadowColor = FinalRamp * _CharacterIntensity;
 
                     ShadowColor = RampShadowColor;
 
@@ -586,7 +587,7 @@
                     //根据光照角度判断是否处于背光，使用正向还是反向的lightData。
                     float lightAttenuation = step(0, FrontL) * min(step(RightL, lightData.x), step(-RightL, lightData.y));
                     
-                    half3 FaceColor = lerp(ShadowColor.rgb, baseColor.rgb, lightAttenuation);
+                    half3 FaceColor = lerp(DarkShadowColor.rgb * _FaceDarkIntensity , baseColor.rgb, lightAttenuation);
                     FinalColor.rgb = FaceColor;
                 #endif
 

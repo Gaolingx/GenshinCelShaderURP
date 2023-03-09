@@ -13,8 +13,8 @@
 
         [Header(Main Texture Setting)]
         [Space(5)]
-        [MainTexture]_BaseMap ("_BaseMap (Albedo)", 2D) = "black" { }
-        [HDR][MainColor]_BaseColor ("_BaseColor", Color) = (1, 1, 1, 1)
+        [MainTexture]_MainTex ("MainTex (Albedo)", 2D) = "black" { }
+        [HDR][MainColor]_MainColor ("MainColor", Color) = (1, 1, 1, 1)
         _WorldLightInfluence ("World Light Influence", range(0.0, 1.0)) = 0.1
         [Toggle(ENABLE_AUTOCOLOR)] _EnableAutoColor ("Enable AutoColor", float) = 0.0
         [Space(30)]
@@ -28,7 +28,7 @@
         [Header(Emission)]
         [Toggle]_EnableEmission ("Enable Emission", Float) = 0
         _Emission ("Emission", range(0.0, 20.0)) = 1.0
-        [HDR]_EmissionColor ("Emission Color", color) = (0, 0, 0, 0)
+        [HDR]_EmissionColors ("Emission Color", color) = (0, 0, 0, 0)
         _EmissionBloomFactor ("Emission Bloom Factor", range(0.0, 10.0)) = 1.0
         [HideInInspector]_EmissionMapChannelMask ("_EmissionMapChannelMask", Vector) = (1, 1, 1, 0)
         [Space(30)]
@@ -122,7 +122,7 @@
 
         [Header(Alpha)]
         [Toggle(ENABLE_ALPHA_CLIPPING)]_EnableAlphaClipping ("_EnableAlphaClipping", Float) = 0
-        _Cutoff ("_Cutoff (Alpha Cutoff)", Range(0.0, 1.0)) = 0.5
+        _ClipScale ("_ClipScale (Alpha Cutoff)", Range(0.0, 1.0)) = 0.5
     }
 
 
@@ -143,8 +143,8 @@
 
         int _IsNight;
 
-        TEXTURE2D(_BaseMap);        SAMPLER(sampler_BaseMap);
-        TEXTURE2D(_EmissionMap);    SAMPLER(sampler_EmissionMap);
+        TEXTURE2D(_MainTex);        SAMPLER(sampler_MainTex);
+
         TEXTURE2D(_LightMap);       SAMPLER(sampler_LightMap);
         TEXTURE2D(_FaceShadowMap);  SAMPLER(sampler_FaceShadowMap);
         TEXTURE2D(_RampMap);        SAMPLER(sampler_RampMap);
@@ -159,8 +159,8 @@
             // 纹理缩放平移系数
 
             float   _IsFace;
-            float4 _BaseMap_ST;
-            float4 _BaseColor;
+            float4 _MainTex_ST;
+            float4 _MainColor;
             half _WorldLightInfluence;
             float _EnableAutoColor;
 
@@ -225,7 +225,7 @@
             float4 _BloomMap_ST;
             float _BloomFactor;
             float _EnableEmission;
-            half3 _EmissionColor;
+            half3 _EmissionColors;
             float _Emission;
             float _EmissionBloomFactor;
             half _EmissionMulByBaseColor;
@@ -242,11 +242,11 @@
             float   _OutlineZOffsetMaskRemapEnd;
 
             float _EnableAlphaClipping;
-            half _Cutoff;
+            half _ClipScale;
 
         CBUFFER_END
 
-        struct Attributes
+        struct a2v
         {
             float3 positionOS: POSITION;      //顶点坐标
             half4 color: COLOR0;              //顶点色
@@ -255,7 +255,7 @@
             float2 texcoord: TEXCOORD0;       //纹理坐标
         };
 
-        struct Varyings
+        struct v2f
         {
             float4 positionCS: POSITION;       //裁剪空间顶点坐标
             float4 color: COLOR0;              //平滑Rim所需顶点色
@@ -275,9 +275,9 @@
             return (positionWS + normalWS * outlineExpandAmount) * _EnableOutline;
         }
 
-        Varyings OutlinePassVertex(Attributes input)
+        v2f OutlinePassVertex(a2v input)
         {
-            Varyings output = (Varyings)0;
+            v2f output = (v2f)0;
             output.color = input.color;
 
             VertexNormalInputs vertexNormalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
@@ -300,7 +300,7 @@
             float lambert = dot(output.normalWS, lightDirWS);
             output.lambert = lambert * 0.5f + 0.5f;
 
-            output.uv.xy = TRANSFORM_TEX(input.texcoord, _BaseMap);
+            output.uv.xy = TRANSFORM_TEX(input.texcoord, _MainTex);
             output.uv.zw = TRANSFORM_TEX(input.texcoord, _BloomMap);
 
             output.shadowCoord = TransformWorldToShadowCoord(output.positionWS);
@@ -323,9 +323,9 @@
 
         }
 
-        Varyings ToonPassVertex(Attributes input)
+        v2f ToonPassVertex(a2v input)
         {
-            Varyings output = (Varyings)0;
+            v2f output = (v2f)0;
             output.color = input.color;
 
             VertexNormalInputs vertexNormalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
@@ -342,16 +342,16 @@
             float lambert = dot(output.normalWS, lightDirWS);
             output.lambert = lambert * 0.5f + 0.5f;
 
-            output.uv.xy = TRANSFORM_TEX(input.texcoord, _BaseMap);
+            output.uv.xy = TRANSFORM_TEX(input.texcoord, _MainTex);
             output.uv.zw = TRANSFORM_TEX(input.texcoord, _BloomMap);
 
             output.shadowCoord = TransformWorldToShadowCoord(output.positionWS);
             return output;
         }
 
-        Varyings ShadowCasterPassVertex(Attributes input)
+        v2f ShadowCasterPassVertex(a2v input)
         {
-            Varyings output = (Varyings)0;
+            v2f output = (v2f)0;
             
             // VertexPositionInputs contains position in multiple spaces (world, view, homogeneous clip space)
             // Our compiler will strip all unused references (say you don't use view space).
@@ -366,7 +366,7 @@
             float fogFactor = ComputeFogFactor(vertexInput.positionCS.z);
             
             // TRANSFORM_TEX is the same as the old shader library.
-            output.uv.xy = TRANSFORM_TEX(input.texcoord, _BaseMap);
+            output.uv.xy = TRANSFORM_TEX(input.texcoord, _MainTex);
             
             // packing posWS.xyz & fog into a vector4
             output.positionWS = float4(vertexInput.positionWS, fogFactor);
@@ -406,11 +406,11 @@
             return output;
         }
 
-        half4 FragmentAlphaClip(Varyings input): SV_TARGET
+        half4 FragmentAlphaClip(v2f input): SV_TARGET
         {
             UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
             #if ENABLE_ALPHA_CLIPPING
-                clip(SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).b - _Cutoff);
+                clip(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv).b - _ClipScale);
             #endif
             return 0;
         }
@@ -447,12 +447,12 @@
             #pragma vertex ToonPassVertex
             #pragma fragment ToonPassFragment
 
-            half4 ToonPassFragment(Varyings input): COLOR
+            half4 ToonPassFragment(v2f input): COLOR
             {
 
-                half4 baseColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv.xy);
+                half4 baseColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv.xy);
                 #if ENABLE_ALPHA_CLIPPING
-                    clip(baseColor.a - _Cutoff);
+                    clip(baseColor.a - _ClipScale);
                 #endif
 
                 #if ENABLE_BLOOM_MASK
@@ -479,15 +479,15 @@
                 half4 LightMapColor = SAMPLE_TEXTURE2D(_LightMap, sampler_LightMap, input.uv.xy);
 
                 // 计算世界空间中的光照和视角方向
-                half3 lightDir = normalize(TransformObjectToWorldDir(mainLight.direction));
+                half3 lightDir = normalize(TransformObjectToWorldDir(_MainLightPosition.xyz));
                 half3 viewDirWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS.xyz);
                 half3 halfViewLightWS = normalize(viewDirWS + mainLight.direction.xyz);
                 half3 halfDir = normalize(viewDirWS + lightDir);
 
-                float3 V = viewDirWS;
-                half3 L=mainLight.direction;
-                float3 N = input.normalWS;
-                float3 H = halfDir;
+                float3 V = viewDirWS;//视角方向
+                half3 L = mainLight.direction;//光照
+                float3 N = input.normalWS;//法线
+                float3 H = normalize(V + L);//得到我们的半程向量
                 float NH = saturate(dot(N,H)); 
                 float NV = saturate (dot(N,V));
                 float NL = saturate (dot(N,L));
@@ -621,7 +621,7 @@
 
                 half4 SpecDiffuse;
                 SpecDiffuse.rgb = FinalSpecular + FinalColor.rgb;
-                SpecDiffuse.rgb *= _BaseColor.rgb;
+                SpecDiffuse.rgb *= _MainColor.rgb;
                 SpecDiffuse.a = FinalSpecular.a * _BloomFactor * 10;
 
                 //==========================================================================================
@@ -665,7 +665,7 @@
 
                 // Emission & Bloom
                 half4 Emission;
-                Emission.rgb = _Emission * DarkShadowColor.rgb * _EmissionColor.rgb - SpecDiffuse.rgb;
+                Emission.rgb = _Emission * DarkShadowColor.rgb * _EmissionColors.rgb - SpecDiffuse.rgb;
                 Emission.a = _EmissionBloomFactor * baseColor.a;
 
                 half4 SpecRimEmission;
@@ -701,9 +701,9 @@
             #pragma vertex OutlinePassVertex
             #pragma fragment OutlinePassFragment
 
-            float4 OutlinePassFragment(Varyings input): COLOR
+            float4 OutlinePassFragment(v2f input): COLOR
             {
-                half4 baseColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv.xy);
+                half4 baseColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv.xy);
                 half4 FinalColor = _OutlineColor * baseColor;
 
                 return FinalColor;
@@ -727,7 +727,7 @@
             #pragma vertex ShadowCasterPassVertex
             #pragma fragment ShadowCasterPassFragment        
             
-            half4 ShadowCasterPassFragment(Varyings input): SV_TARGET
+            half4 ShadowCasterPassFragment(v2f input): SV_TARGET
             {
                 return 0;
             }
@@ -753,7 +753,52 @@
             
             ENDHLSL
 
-        }        
+        }       
+
+        //【pass：深度】
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
+
+            ZWrite On
+            ColorMask 0
+            Cull off
+
+            HLSLPROGRAM
+            // Required to compile gles 2.0 with standard srp library
+
+            #pragma vertex DepthOnlyVertex
+            #pragma fragment DepthOnlyFragment
+
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
+            ENDHLSL
+        }
+        
+        pass
+        {
+            Tags { "LightMode" = "ShadowCaster" }
+            ColorMask 0
+
+            HLSLPROGRAM
+
+            #pragma target 3.5
+            //是否剔除的shader feature
+            #pragma shader_feature _ _SHADOWS_CLIP _SHADOWS_DITHER
+            //GPU需要CPU给它的数组数据
+            #pragma multi_compile_instancing
+            //设置LOD
+            #pragma multi_compile _ LOD_FADE_CROSSFADE
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"//函数库：主要用于各种的空间变换
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"//从unity中取得我们的光照
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
+            #pragma vertex ShadowPassVertex
+            #pragma fragment ShadowPassFragment
+            ENDHLSL
+        }
+
         Pass
         {
             Name "DepthNormals"

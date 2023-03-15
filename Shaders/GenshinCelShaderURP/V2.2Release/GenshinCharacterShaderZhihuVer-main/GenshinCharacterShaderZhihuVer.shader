@@ -532,7 +532,7 @@
 
                     float2 RampUV = float2(RampX, RampY);
                     float4 rampColor = SAMPLE_TEXTURE2D(_RampMap, sampler_RampMap, RampUV);
-                    half3 FinalRamp = lerp(rampColor * DarkShadowColor.rgb *_DarkIntensity, baseColor, step(_RampShadowRange, halfLambert * ShadowAO * _RangeAO) * _BrightIntensity);
+                    half3 FinalRamp = lerp(rampColor.rgb * DarkShadowColor.rgb *_DarkIntensity, baseColor.rgb, step(_RampShadowRange, halfLambert * ShadowAO * _RangeAO) * _BrightIntensity);
 
                     //— — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — —
                     // Hair Ramp
@@ -543,7 +543,7 @@
                         RampY = RampPixelY * (17 - 2 * lerp(1, 3, step(0.5, LayerMask)));
                         RampUV = float2(RampX, RampY);
                         rampColor = SAMPLE_TEXTURE2D(_RampMap, sampler_RampMap, RampUV);
-                        FinalRamp = lerp(rampColor * DarkShadowColor.rgb * _DarkIntensity, baseColor, step(_RampShadowRange, halfLambert * ShadowAO * _RangeAO) * _BrightIntensity);
+                        FinalRamp = lerp(rampColor.rgb * DarkShadowColor.rgb * _DarkIntensity, baseColor.rgb, step(_RampShadowRange, halfLambert * ShadowAO * _RangeAO) * _BrightIntensity);
                     #endif
 
                     half3 RampShadowColor = FinalRamp * _CharacterIntensity;
@@ -587,7 +587,7 @@
                     //根据光照角度判断是否处于背光，使用正向还是反向的lightData。
                     float lightAttenuation = step(0, FrontL) * min(step(RightL, lightData.x), step(-RightL, lightData.y));
                     
-                    half3 FaceColor = lerp(DarkShadowColor.rgb * _FaceDarkIntensity , baseColor.rgb, lightAttenuation);
+                    half3 FaceColor = lerp(ShadowColor.rgb * _FaceDarkIntensity , baseColor.rgb, lightAttenuation);
                     FinalColor.rgb = FaceColor;
                 #endif
 
@@ -620,7 +620,7 @@
                 FinalSpecular *= halfLambert * ShadowAO * _SpecMulti *_EnableSpecular;
 
                 half4 SpecDiffuse;
-                SpecDiffuse.rgb = FinalSpecular + FinalColor.rgb;
+                SpecDiffuse.rgb = FinalSpecular.rgb + FinalColor.rgb;
                 SpecDiffuse.rgb *= _MainColor.rgb;
                 SpecDiffuse.a = FinalSpecular.a * _BloomFactor * 10;
 
@@ -753,7 +753,7 @@
             
             ENDHLSL
 
-        }       
+        }         
 
         //【pass：深度】
         Pass

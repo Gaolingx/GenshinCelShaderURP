@@ -1,4 +1,4 @@
-﻿Shader "GenshinCharacterShaderZhihuVer"
+﻿Shader "GenshinCelShaderURP/V2.2Release"
 {      
     Properties
     {
@@ -88,7 +88,7 @@
         _RimSmooth ("Rim Smooth", Range(0.001, 1.0)) = 0.01
         _RimPow ("Rim Pow", Range(0.0, 10.0)) = 1.0
         [Space(5)]
-        [Toggle]_EnableRimDS ("Enable Dark Side Rim", int) = 1
+        [Toggle]_EnableRimDS ("Enable Dark Side Rim", int) = 0
         [HDR]_DarkSideRimColor ("DarkSide Rim Color", Color) = (1, 1, 1, 1)
         _DarkSideRimSmooth ("DarkSide Rim Smooth", Range(0.001, 1.0)) = 0.01
         _DarkSideRimPow ("DarkSide Rim Pow", Range(0.0, 10.0)) = 1.0

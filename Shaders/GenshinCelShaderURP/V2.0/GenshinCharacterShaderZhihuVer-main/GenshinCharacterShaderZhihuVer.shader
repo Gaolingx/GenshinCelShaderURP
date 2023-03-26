@@ -1,4 +1,4 @@
-﻿Shader "GenshinCharacterShaderZhihuVer"
+﻿Shader "GenshinCelShaderURP/V2.0"
 {      
     Properties
     {

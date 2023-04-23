@@ -79,9 +79,11 @@ LightMap.g :阴影AO ShadowAOMask，可以理解为二级阴影，也就是不�
   
 LightMap.b :BltMap.a :Raask SpecularIntensityMa制漫反射暗部颜色，htMap.a :Ramp类型Layer，根据值域选择不同的Ramp（控制漫反射暗部颜色，非常重要）
   
-VertexColor.g :Ramp偏移值,r.a :描边粗细"感光"(在⼀个特定的⾓度，偏移光照明暗) 
-  
-VertexColor.a :描边粗细
+LightMap.a :Ramp类型Layer，根据值域选择不同的Ramp（控制漫反射暗部颜色，非常重要，待会介绍）
+
+VertexColor.g :Ramp偏移值,值越⼤的区域 越容易"感光"(在⼀个特定的⾓度，偏移光照明暗) 
+
+VertexColor.a :描边粗细 
   
 ## Thanks
 鸣谢以下大佬们提交的代码（排名不分先后）：

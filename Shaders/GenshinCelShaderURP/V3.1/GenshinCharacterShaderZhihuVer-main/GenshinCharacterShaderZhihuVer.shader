@@ -144,6 +144,8 @@
 
         int _IsNight;
 
+        float3 _LightDirection;
+
         TEXTURE2D(_MainTex);        SAMPLER(sampler_MainTex);
 
         TEXTURE2D(_LightMap);       SAMPLER(sampler_LightMap);
@@ -181,13 +183,13 @@
             float _BrightIntensity;
             float _DarkIntensity;
             float _FaceDarkIntensity;
-            float _ShadowColor;
+            float3 _ShadowColor;
 
-            float3 _ShadowMultColor;
+            half3 _ShadowMultColor;
             float _ShadowArea;
             float _DarkShadowSmooth;
             float _DarkShadowArea;
-            float3 _DarkShadowMultColor;
+            half3 _DarkShadowMultColor;
 
             int _EnableSpecular;
             int _EnableMetalSpecular;
@@ -270,43 +272,47 @@
             float4 shadowCoord: TEXCOORD5;
             float3 worldTangent : TEXCOORD6;    //世界空间切线
             float3 worldBiTangent : TEXCOORD7;  //世界空间副切线
+            float4 positionWSAndFogFactor: TEXCOORD8; // xyz: positionWS, w: vertex fog factor
         };
 
-        float3 TransformPositionWSToOutlinePositionWS(half vertexColorAlpha, float3 positionWS, float positionVS_Z, float3 normalWS)
+
+        float3 TransformPositionWSToOutlinePositionWS(float3 positionWS, float positionVS_Z, float3 normalWS)
         {
-            float outlineExpandAmount = vertexColorAlpha * _OutlineWidth * GetOutlineCameraFovAndDistanceFixMultiplier(positionVS_Z);
-            return (positionWS + normalWS * outlineExpandAmount) * _EnableOutline;
+            //you can replace it to your own method! Here we will write a simple world space method for tutorial reason, it is not the best method!
+            float outlineExpandAmount = _OutlineWidth * GetOutlineCameraFovAndDistanceFixMultiplier(positionVS_Z);
+            return positionWS + normalWS * outlineExpandAmount; 
         }
 
+        // if "ToonShaderIsOutline" is not defined    = do regular MVP transform
+        // if "ToonShaderIsOutline" is defined        = do regular MVP transform + push vertex out a bit according to normal direction
         v2f OutlinePassVertex(a2v input)
         {
             v2f output = (v2f)0;
-            output.color = input.color;
+            // VertexPositionInputs contains position in multiple spaces (world, view, homogeneous clip space, ndc)
+            // Unity compiler will strip all unused references (say you don't use view space).
+            // Therefore there is more flexibility at no additional cost with this struct.
+            VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS);
 
+            // Similar to VertexPositionInputs, VertexNormalInputs will contain normal, tangent and bitangent
+            // in world space. If not used it will be stripped.
             VertexNormalInputs vertexNormalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
-            output.normalWS = vertexNormalInput.normalWS;
 
-            output.positionWS = TransformObjectToWorld(input.positionOS);
-            output.positionVS = TransformWorldToView(output.positionWS);
-            output.positionCS = TransformWorldToHClip(output.positionWS);
+            float3 positionWS = vertexInput.positionWS;
 
-            // #ifdef ToonShaderIsOutline
-            output.positionWS = TransformPositionWSToOutlinePositionWS(input.color.a, output.positionWS, output.positionVS.z, output.normalWS);
-            // #endif
+            positionWS = TransformPositionWSToOutlinePositionWS(vertexInput.positionWS, vertexInput.positionVS.z, vertexNormalInput.normalWS);
 
-            output.positionCS = TransformWorldToHClip(output.positionWS);
-            
-            float3 lightDirWS = normalize(_MainLightPosition.xyz);
-            float3 fixedlightDirWS = normalize(float3(lightDirWS.x, _FixLightY, lightDirWS.z));
-            lightDirWS = _IgnoreLightY ? fixedlightDirWS: lightDirWS;
+            // Computes fog factor per-vertex.
+            float fogFactor = ComputeFogFactor(vertexInput.positionCS.z);
 
-            float lambert = dot(output.normalWS, lightDirWS);
-            output.lambert = lambert * 0.5f + 0.5f;
-
+            // TRANSFORM_TEX is the same as the old shader library.
             output.uv.xy = TRANSFORM_TEX(input.texcoord, _MainTex);
-            output.uv.zw = TRANSFORM_TEX(input.texcoord, _BloomMap);
+            
 
-            output.shadowCoord = TransformWorldToShadowCoord(output.positionWS);
+            // packing positionWS(xyz) & fog(w) into a vector4
+            output.positionWSAndFogFactor = float4(positionWS, fogFactor);
+            output.normalWS = vertexNormalInput.normalWS; //normlaized already by GetVertexNormalInputs(...)
+
+            output.positionCS = TransformWorldToHClip(positionWS);
 
             // [Read ZOffset mask texture]
             // we can't use tex2D() in vertex shader because ddx & ddy is unknown before rasterization, 
@@ -322,8 +328,17 @@
             // [Apply ZOffset, Use remapped value as ZOffset mask]
             output.positionCS = NiloGetNewClipPosWithZOffset(output.positionCS, _OutlineZOffset * outlineZOffsetMask + 0.03 * _IsFace);
 
-            return output;
+            // ShadowCaster pass needs special process to positionCS, else shadow artifact will appear
+            //--------------------------------------------------------------------------------------
 
+            // see GetShadowPositionHClip() in URP/Shaders/ShadowCasterPass.hlsl
+            // https://github.com/Unity-Technologies/Graphics/blob/master/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl
+            float4 positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, output.normalWS, _LightDirection));
+
+
+            //--------------------------------------------------------------------------------------    
+
+            return output;
         }
 
         v2f ToonPassVertex(a2v input)
@@ -352,62 +367,6 @@
             return output;
         }
 
-        v2f ShadowCasterPassVertex(a2v input)
-        {
-            v2f output = (v2f)0;
-            
-            // VertexPositionInputs contains position in multiple spaces (world, view, homogeneous clip space)
-            // Our compiler will strip all unused references (say you don't use view space).
-            // Therefore there is more flexibility at no additional cost with this struct.
-            VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS);
-            
-            // Similar to VertexPositionInputs, VertexNormalInputs will contain normal, tangent and bitangent
-            // in world space. If not used it will be stripped.
-            VertexNormalInputs vertexNormalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
-            
-            // Computes fog factor per-vertex.
-            float fogFactor = ComputeFogFactor(vertexInput.positionCS.z);
-            
-            // TRANSFORM_TEX is the same as the old shader library.
-            output.uv.xy = TRANSFORM_TEX(input.texcoord, _MainTex);
-            
-            // packing posWS.xyz & fog into a vector4
-            output.positionWS = float4(vertexInput.positionWS, fogFactor);
-            output.normalWS = vertexNormalInput.normalWS;
-            
-            #ifdef _MAIN_LIGHT_SHADOWS
-                // shadow coord for the light is computed in vertex.
-                // After URP 7.21, URP will always resolve shadows in light space, no more screen space resolve.
-                // In this case shadowCoord will be the vertex position in light space.
-                output.shadowCoord = GetShadowCoord(vertexInput);
-            #endif
-            
-            // Here comes the flexibility of the input structs.
-            // We just use the homogeneous clip position from the vertex input
-            output.positionCS = vertexInput.positionCS;
-            
-            // ShadowCaster pass needs special process to clipPos, else shadow artifact will appear
-            //--------------------------------------------------------------------------------------
-            
-            //see GetShadowPositionHClip() in URP/Shaders/ShadowCasterPass.hlsl
-            float3 positionWS = vertexInput.positionWS;
-            float3 normalWS = vertexNormalInput.normalWS;
-            
-            
-            Light light = GetMainLight();
-            float4 positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, normalWS, light.direction));
-            
-            #if UNITY_REVERSED_Z
-                positionCS.z = min(positionCS.z, positionCS.w * UNITY_NEAR_CLIP_VALUE);
-            #else
-                positionCS.z = max(positionCS.z, positionCS.w * UNITY_NEAR_CLIP_VALUE);
-            #endif
-            output.positionCS = positionCS;
-            
-            //--------------------------------------------------------------------------------------
-            
-            return output;
-        }
 
         half4 FragmentAlphaClip(v2f input): SV_TARGET
         {
@@ -564,7 +523,7 @@
 
                     float3 BaseMapShadowed = lerp(baseColor.rgb * finalRamp , baseColor.rgb, ShadowAOMask);              //分布Ramp 
 
-                    BaseMapShadowed = lerp(baseColor.rgb * _ShadowMultColor.rgb, BaseMapShadowed * _DarkShadowMultColor.rgb, _ShadowRampLerp);                            //阴影强度
+                    BaseMapShadowed = lerp(baseColor.rgb, BaseMapShadowed * _DarkShadowMultColor.rgb, _ShadowRampLerp);                            //阴影强度
 
                     float IsBrightSide = ShadowAOMask * step(_LightThreshold, halfLambert);                             //获得亮部、暗部分布
 
@@ -741,7 +700,7 @@
             ENDHLSL
 
         }
-        
+
         //this Pass copy from https://github.com/ColinLeung-NiloCat/UnityURPToonLitShaderExample
         Pass
         {
@@ -750,30 +709,91 @@
             
             //we don't care about color, we just write to depth
             ColorMask 0
-
+            
             HLSLPROGRAM
-
+            
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            
             #pragma vertex ShadowCasterPassVertex
-            #pragma fragment ShadowCasterPassFragment        
+            #pragma fragment ShadowCasterPassFragment
+
+            v2f ShadowCasterPassVertex(a2v input)
+            {
+                
+                v2f output = (v2f)0;
+                
+                // VertexPositionInputs contains position in multiple spaces (world, view, homogeneous clip space)
+                // Our compiler will strip all unused references (say you don't use view space).
+                // Therefore there is more flexibility at no additional cost with this struct.
+                VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS);
+                
+                // Similar to VertexPositionInputs, VertexNormalInputs will contain normal, tangent and bitangent
+                // in world space. If not used it will be stripped.
+                VertexNormalInputs vertexNormalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
+                
+                // Computes fog factor per-vertex.
+                float fogFactor = ComputeFogFactor(vertexInput.positionCS.z);
+                
+                // TRANSFORM_TEX is the same as the old shader library.
+                output.uv.xy = TRANSFORM_TEX(input.texcoord, _MainTex);
+                
+                // packing posWS.xyz & fog into a vector4
+                output.positionWSAndFogFactor = float4(vertexInput.positionWS, fogFactor);
+                output.normalWS = vertexNormalInput.normalWS;
+                
+                #ifdef _MAIN_LIGHT_SHADOWS
+                    // shadow coord for the light is computed in vertex.
+                    // After URP 7.21, URP will always resolve shadows in light space, no more screen space resolve.
+                    // In this case shadowCoord will be the vertex position in light space.
+                    output.shadowCoord = GetShadowCoord(vertexInput);
+                #endif
+                
+                // Here comes the flexibility of the input structs.
+                // We just use the homogeneous clip position from the vertex input
+                output.positionCS = vertexInput.positionCS;
+                
+                // ShadowCaster pass needs special process to clipPos, else shadow artifact will appear
+                //--------------------------------------------------------------------------------------
+                
+                //see GetShadowPositionHClip() in URP/Shaders/ShadowCasterPass.hlsl
+                float3 positionWS = vertexInput.positionWS;
+                float3 normalWS = vertexNormalInput.normalWS;
+                
+                
+                Light light = GetMainLight();
+                float4 positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, normalWS, light.direction));
+                
+                #if UNITY_REVERSED_Z
+                    positionCS.z = min(positionCS.z, positionCS.w * UNITY_NEAR_CLIP_VALUE);
+                #else
+                    positionCS.z = max(positionCS.z, positionCS.w * UNITY_NEAR_CLIP_VALUE);
+                #endif
+                output.positionCS = positionCS;
+                
+                //--------------------------------------------------------------------------------------
+                
+                return output;
+            }
             
             half4 ShadowCasterPassFragment(v2f input): SV_TARGET
             {
                 return 0;
             }
-
+            
             ENDHLSL
-
+            
         }
-        
         Pass
         {
             Name "DepthOnly"
             Tags { "LightMode" = "DepthOnly" }
 
-            ZWrite On
-            ZTest LEqual
-            ColorMask 0
-            Cull Off
+            // more explict render state to avoid confusion
+            ZWrite On // the only goal of this pass is to write depth!
+            ZTest LEqual // early exit at Early-Z stage if possible            
+            ColorMask 0 // we don't care about color, we just want to write depth, ColorMask 0 will save some write bandwidth
+            Cull Back // support Cull[_Cull] requires "flip vertex normal" using VFACE in fragment shader, which is maybe beyond the scope of a simple tutorial shader
 
             HLSLPROGRAM
 
@@ -784,49 +804,6 @@
 
         }         
 
-        //【pass：深度】
-        Pass
-        {
-            Name "DepthOnly"
-            Tags { "LightMode" = "DepthOnly" }
-
-            ZWrite On
-            ColorMask 0
-            Cull off
-
-            HLSLPROGRAM
-            // Required to compile gles 2.0 with standard srp library
-
-            #pragma vertex DepthOnlyVertex
-            #pragma fragment DepthOnlyFragment
-
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
-            ENDHLSL
-        }
-        
-        pass
-        {
-            Tags { "LightMode" = "ShadowCaster" }
-            ColorMask 0
-
-            HLSLPROGRAM
-
-            #pragma target 3.5
-            //是否剔除的shader feature
-            #pragma shader_feature _ _SHADOWS_CLIP _SHADOWS_DITHER
-            //GPU需要CPU给它的数组数据
-            #pragma multi_compile_instancing
-            //设置LOD
-            #pragma multi_compile _ LOD_FADE_CROSSFADE
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"//函数库：主要用于各种的空间变换
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"//从unity中取得我们的光照
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
-            #pragma vertex ShadowPassVertex
-            #pragma fragment ShadowPassFragment
-            ENDHLSL
-        }
 
         Pass
         {

@@ -587,6 +587,7 @@
                 half4 MetalSpecular;
                 half4 StepSpecular;
                 half4 FinalSpecular;
+
                 // ILM的R通道，灰色为裁边视角高光
                 half StepMask = step(0.2, SpecularLayerMask) - step(0.8, SpecularLayerMask);
                 StepSpecular = step(1 - _StepSpecularGloss, saturate(dot(input.normalWS, viewDirWS))) * _StepSpecularIntensity * StepMask;
@@ -605,7 +606,7 @@
                 
                 FinalSpecular = StepSpecular + BlinnPhongSpecular + MetalSpecular;
                 FinalSpecular = lerp(0, baseColor * FinalSpecular * _SpecularColor, SpecularIntensityMask) ;
-                FinalSpecular *= halfLambert * _RampShadowRange * _SpecMulti *_EnableSpecular;
+                FinalSpecular *= halfLambert * ShadowAOMask * _SpecMulti * _EnableSpecular;
 
                 half4 SpecDiffuse;
                 SpecDiffuse.rgb = FinalSpecular.rgb + FinalColor.rgb;

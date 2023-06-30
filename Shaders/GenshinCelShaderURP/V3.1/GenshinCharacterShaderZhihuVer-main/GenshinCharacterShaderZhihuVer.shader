@@ -4,7 +4,7 @@
     {
         [Header(Shader Setting)]
         [Space(5)]
-        [KeywordEnum(Base,Hair,Face)] _ShaderEnum("Shader类型",int) = 0
+        [KeywordEnum(Base,Hair,Face)] _ShaderEnum("Shader类型", int) = 0
         [Toggle] _IsNight ("In Day", int) = 0
         [Space(5)]
 
@@ -114,16 +114,37 @@
         [Header(Outline Setting)]
         [Space(5)]
         [Toggle] _EnableOutline ("Enable Outline", float) = 1
-        _OutlineWidth("_OutlineWidth (World Space)", Range(0,4)) = 1
-        _OutlineColor("_OutlineColor", Color) = (0.5,0.5,0.5,1)
-        _OutlineZOffset("_OutlineZOffset (View Space)", Range(0,1)) = 0.0001
+        _OutlineWidth("_OutlineWidth (World Space)", Range(0, 4)) = 1
+        _OutlineColor("_OutlineColor", Color) = (0.5, 0.5, 0.5, 1)
+        _OutlineZOffset("_OutlineZOffset (View Space)", Range(0, 1)) = 0.0001
         [NoScaleOffset]_OutlineZOffsetMaskTex("_OutlineZOffsetMask (black is apply ZOffset)", 2D) = "black" {}
-        _OutlineZOffsetMaskRemapStart("_OutlineZOffsetMaskRemapStart", Range(0,1)) = 0
-        _OutlineZOffsetMaskRemapEnd("_OutlineZOffsetMaskRemapEnd", Range(0,1)) = 1
+        _OutlineZOffsetMaskRemapStart("_OutlineZOffsetMaskRemapStart", Range(0, 1)) = 0
+        _OutlineZOffsetMaskRemapEnd("_OutlineZOffsetMaskRemapEnd", Range(0, 1)) = 1
 
         [Header(Alpha)]
         [Toggle(ENABLE_ALPHA_CLIPPING)]_EnableAlphaClipping ("_EnableAlphaClipping", Float) = 0
         _ClipScale ("_ClipScale (Alpha Cutoff)", Range(0.0, 1.0)) = 0.5
+
+        [Header(Surface Options)]
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull (Default back)", Float) = 2
+        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlendMode ("Cull (Default back)", Float) = 1
+        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendMode ("Cull (Default back)", Float) = 0
+        [Enum(UnityEngine.Rendering.BlendOp)] _BlendOp ("Cull (Default back)", Float) = 0
+        [Enum(Off,0, On,1)] _ZWrite("ZWrite (Default On)",Float) = 1
+        _StencilRef ("Stencil reference (Default 0)",Range(0,255)) = 0
+        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp("Stencil comparison (Default disabled)",Int) = 0
+        [Enum(UnityEngine.Rendering.StencilOp)] _StencilPassOp("Stencil pass comparison (Default keep)",Int) = 0
+        [Enum(UnityEngine.Rendering.StencilOp)] _StencilFailOp("Stencil fail comparison (Default keep)",Int) = 0
+        [Enum(UnityEngine.Rendering.StencilOp)] _StencilZFailOp("Stencil z fail comparison (Default keep)",Int) = 0
+
+        [Header(Draw Overlay)]
+        [Toggle(_DRAW_OVERLAY_ON)] _UseDrawOverlay("Use draw overlay (Default NO)",float) = 0
+        [Enum(UnityEngine.Rendering.BlendMode)] _ScrBlendModeOverlay("Overlay pass scr blend mode (Default One)",Float) = 1
+        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendModeOverlay("Overlay pass dst blend mode (Default Zero)", Float) = 0
+        [Enum(UnityEngine.Rendering.BlendOp)] _BlendOpOverlay("Overlay pass blend operation (Default Add)", Float) = 0
+        _StencilRefOverlay ("Overlay pass stencil reference (Default 0)", Range(0,255)) = 0
+        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilCompOverlay("Overlay pass stencil comparison (Default disabled)",Int) = 0
+
     }
 
 
@@ -136,6 +157,7 @@
 
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
         #include "NiloInvLerpRemap.hlsl"
         #include "NiloOutlineUtil.hlsl"
         #include "NiloZOffset.hlsl"
@@ -385,10 +407,17 @@
 
             Tags { "LightMode" = "UniversalForward" }
 
-            Cull Back
-            ZTest LEqual
-            ZWrite On
-            Blend One Zero
+            Cull[_Cull]
+            Stencil{
+                Ref [_StencilRef]
+                Comp [_StencilComp]
+                Pass [_StencilPassOp]
+                Fail [_StencilFailOp]
+                ZFail [_StencilZFailOp]
+            }
+            Blend [_SrcBlendMode] [_DstBlendMode]
+            BlendOp [_BlendOp]
+            ZWrite [_ZWrite]
 
             HLSLPROGRAM
 
@@ -707,10 +736,16 @@
         {
             Name "ShadowCaster"
             Tags { "LightMode" = "ShadowCaster" }
+
+            ZWrite [_ZWrite]
+            ZTest LEqual
+            ColorMask 0
+            Cull[_Cull]
             
+            /*
             //we don't care about color, we just write to depth
             ColorMask 0
-            
+            */
             HLSLPROGRAM
             
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -790,12 +825,16 @@
             Name "DepthOnly"
             Tags { "LightMode" = "DepthOnly" }
 
+            ZWrite [_ZWrite]
+            ColorMask 0
+            Cull[_Cull]
+            /*
             // more explict render state to avoid confusion
             ZWrite On // the only goal of this pass is to write depth!
             ZTest LEqual // early exit at Early-Z stage if possible            
             ColorMask 0 // we don't care about color, we just want to write depth, ColorMask 0 will save some write bandwidth
             Cull Back // support Cull[_Cull] requires "flip vertex normal" using VFACE in fragment shader, which is maybe beyond the scope of a simple tutorial shader
-
+            */
             HLSLPROGRAM
 
             #pragma vertex OutlinePassVertex
@@ -810,6 +849,9 @@
         {
             Name "DepthNormals"
             Tags{"LightMode" = "DepthNormals"}
+
+            ZWrite [_ZWrite]
+            Cull[_Cull]
 
             //...
         }

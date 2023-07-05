@@ -1,10 +1,10 @@
-﻿﻿Shader "GenshinCelShaderURP/V3.1Release"
+﻿Shader "GenshinCelShaderURP/V3.1Release"
 {      
     Properties
     {
         [Header(Shader Setting)]
         [Space(5)]
-        [KeywordEnum(Base,Hair,Face)] _ShaderEnum("Shader类型",int) = 0
+        [KeywordEnum(Base,Hair,Face)] _ShaderEnum("Shader类型", int) = 0
         [Toggle] _IsNight ("In Day", int) = 0
         [Space(5)]
 
@@ -15,6 +15,7 @@
         [Space(5)]
         [MainTexture]_MainTex ("_BaseMap (Albedo)", 2D) = "black" { }
         [HDR][MainColor]_MainColor ("_BaseColor", Color) = (1, 1, 1, 1)
+        _Alpha("Alpha (Default 1)", Range(0,1)) = 1
         _WorldLightInfluence ("World Light Influence", range(0.0, 1.0)) = 0.1
         [Toggle(ENABLE_AUTOCOLOR)] _EnableAutoColor ("Enable AutoColor", float) = 0.0
         [Space(30)]
@@ -114,16 +115,37 @@
         [Header(Outline Setting)]
         [Space(5)]
         [Toggle] _EnableOutline ("Enable Outline", float) = 1
-        _OutlineWidth("_OutlineWidth (World Space)", Range(0,4)) = 1
-        _OutlineColor("_OutlineColor", Color) = (0.5,0.5,0.5,1)
-        _OutlineZOffset("_OutlineZOffset (View Space)", Range(0,1)) = 0.0001
+        _OutlineWidth("_OutlineWidth (World Space)", Range(0, 4)) = 1
+        _OutlineColor("_OutlineColor", Color) = (0.5, 0.5, 0.5, 1)
+        _OutlineZOffset("_OutlineZOffset (View Space)", Range(0, 1)) = 0.0001
         [NoScaleOffset]_OutlineZOffsetMaskTex("_OutlineZOffsetMask (black is apply ZOffset)", 2D) = "black" {}
-        _OutlineZOffsetMaskRemapStart("_OutlineZOffsetMaskRemapStart", Range(0,1)) = 0
-        _OutlineZOffsetMaskRemapEnd("_OutlineZOffsetMaskRemapEnd", Range(0,1)) = 1
+        _OutlineZOffsetMaskRemapStart("_OutlineZOffsetMaskRemapStart", Range(0, 1)) = 0
+        _OutlineZOffsetMaskRemapEnd("_OutlineZOffsetMaskRemapEnd", Range(0, 1)) = 1
 
         [Header(Alpha)]
         [Toggle(ENABLE_ALPHA_CLIPPING)]_EnableAlphaClipping ("_EnableAlphaClipping", Float) = 0
         _ClipScale ("_ClipScale (Alpha Cutoff)", Range(0.0, 1.0)) = 0.5
+
+        [Header(Surface Options)]
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull (Default back)", Float) = 2
+        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlendMode ("Cull (Default back)", Float) = 1
+        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendMode ("Cull (Default back)", Float) = 0
+        [Enum(UnityEngine.Rendering.BlendOp)] _BlendOp ("Cull (Default back)", Float) = 0
+        [Enum(Off,0, On,1)] _ZWrite("ZWrite (Default On)",Float) = 1
+        _StencilRef ("Stencil reference (Default 0)",Range(0,255)) = 0
+        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp("Stencil comparison (Default disabled)",Int) = 0
+        [Enum(UnityEngine.Rendering.StencilOp)] _StencilPassOp("Stencil pass comparison (Default keep)",Int) = 0
+        [Enum(UnityEngine.Rendering.StencilOp)] _StencilFailOp("Stencil fail comparison (Default keep)",Int) = 0
+        [Enum(UnityEngine.Rendering.StencilOp)] _StencilZFailOp("Stencil z fail comparison (Default keep)",Int) = 0
+
+        [Header(Draw Overlay)]
+        [Toggle(_DRAW_OVERLAY_ON)] _UseDrawOverlay("Use draw overlay (Default NO)",float) = 0
+        [Enum(UnityEngine.Rendering.BlendMode)] _ScrBlendModeOverlay("Overlay pass scr blend mode (Default One)",Float) = 1
+        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendModeOverlay("Overlay pass dst blend mode (Default Zero)", Float) = 0
+        [Enum(UnityEngine.Rendering.BlendOp)] _BlendOpOverlay("Overlay pass blend operation (Default Add)", Float) = 0
+        _StencilRefOverlay ("Overlay pass stencil reference (Default 0)", Range(0,255)) = 0
+        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilCompOverlay("Overlay pass stencil comparison (Default disabled)",Int) = 0
+
     }
 
 
@@ -136,15 +158,17 @@
 
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
         #include "NiloInvLerpRemap.hlsl"
         #include "NiloOutlineUtil.hlsl"
         #include "NiloZOffset.hlsl"
 
         #pragma shader_feature _SHADERENUM_BASE _SHADERENUM_HAIR _SHADERENUM_FACE
+        #pragma shader_feature _DRAW_OVERLAY_ON
 
         int _IsNight;
 
-        float3 _LightDirection;
+        float3 _LightDirections;
 
         TEXTURE2D(_MainTex);        SAMPLER(sampler_MainTex);
 
@@ -164,6 +188,7 @@
             float   _IsFace;
             float4 _MainTex_ST;
             float4 _MainColor;
+            float _Alpha;
             half _WorldLightInfluence;
             float _EnableAutoColor;
 
@@ -328,16 +353,6 @@
             // [Apply ZOffset, Use remapped value as ZOffset mask]
             output.positionCS = NiloGetNewClipPosWithZOffset(output.positionCS, _OutlineZOffset * outlineZOffsetMask + 0.03 * _IsFace);
 
-            // ShadowCaster pass needs special process to positionCS, else shadow artifact will appear
-            //--------------------------------------------------------------------------------------
-
-            // see GetShadowPositionHClip() in URP/Shaders/ShadowCasterPass.hlsl
-            // https://github.com/Unity-Technologies/Graphics/blob/master/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl
-            float4 positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, output.normalWS, _LightDirection));
-
-
-            //--------------------------------------------------------------------------------------    
-
             return output;
         }
 
@@ -346,8 +361,10 @@
             v2f output = (v2f)0;
             output.color = input.color;
 
+            VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS);
             VertexNormalInputs vertexNormalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
             output.normalWS = vertexNormalInput.normalWS;
+            output.positionWSAndFogFactor = float4(vertexInput.positionWS, ComputeFogFactor(vertexInput.positionCS.z));
 
             output.positionWS = TransformObjectToWorld(input.positionOS);
             output.positionVS = TransformWorldToView(output.positionWS);
@@ -367,16 +384,6 @@
             return output;
         }
 
-
-        half4 FragmentAlphaClip(v2f input): SV_TARGET
-        {
-            UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-            #if ENABLE_ALPHA_CLIPPING
-                clip(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv).b - _ClipScale);
-            #endif
-            return 0;
-        }
-
         ENDHLSL
 
         Pass
@@ -385,10 +392,17 @@
 
             Tags { "LightMode" = "UniversalForward" }
 
-            Cull Back
-            ZTest LEqual
-            ZWrite On
-            Blend One Zero
+            Cull[_Cull]
+            Stencil{
+                Ref [_StencilRef]
+                Comp [_StencilComp]
+                Pass [_StencilPassOp]
+                Fail [_StencilFailOp]
+                ZFail [_StencilZFailOp]
+            }
+            Blend [_SrcBlendMode] [_DstBlendMode]
+            BlendOp [_BlendOp]
+            ZWrite [_ZWrite]
 
             HLSLPROGRAM
 
@@ -412,7 +426,8 @@
             half4 ToonPassFragment(v2f input): COLOR
             {
 
-                half4 baseColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv.xy);
+                half4 baseMap = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv.xy);
+                half4 baseColor = baseMap * _MainColor;
                 #if ENABLE_ALPHA_CLIPPING
                     clip(baseColor.a - _ClipScale);
                 #endif
@@ -610,7 +625,6 @@
 
                 half4 SpecDiffuse;
                 SpecDiffuse.rgb = FinalSpecular.rgb + FinalColor.rgb;
-                SpecDiffuse.rgb *= _MainColor.rgb;
                 SpecDiffuse.a = FinalSpecular.a * _BloomFactor * 10;
 
                 //==========================================================================================
@@ -665,10 +679,320 @@
 
                 FinalColor = (_WorldLightInfluence * LightColor * FinalColor + (1 - _WorldLightInfluence) * FinalColor);
 
-                return FinalColor;
+                float alpha = _Alpha;
+
+                float4 FinalColors = float4(FinalColor.rgb, alpha);
+                float3 positionWS = input.positionWSAndFogFactor.xyz;
+                FinalColors.rgb = MixFog(FinalColors.rgb, input.positionWSAndFogFactor.w);
+
+                return FinalColors;
             }
             ENDHLSL
 
+        }
+
+        Pass
+        {
+            Name "DrawOverlay"
+            Tags
+            {
+                "RenderPipeline" = "UniversalPipeline"
+                "RenderType" = "Opaque"
+                "LightMode" = "UniversalForward"
+            }
+            Cull[_Cull]
+            Stencil{
+                Ref [_StencilRefOverlay]
+                Comp [_StencilCompOverlay]
+            }
+            Blend [_ScrBlendModeOverlay] [_DstBlendModeOverlay]
+            BlendOp [_BlendOpOverlay]
+            ZWrite [_ZWrite]
+
+            HLSLPROGRAM
+            #pragma multi_compile _MAIN_LIGHT_SHADOWS
+            #pragma multi_compile _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile _SHADOWS_SOFT
+
+            #pragma multi_compile_fog
+            
+            #pragma vertex ToonPassVertex
+            #pragma fragment ToonPassFragment
+
+            #if _DRAW_OVERLAY_ON
+            half4 ToonPassFragment(v2f input): COLOR
+            {
+
+                half4 baseMap = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv.xy);
+                half4 baseColor = baseMap * _MainColor;
+                #if ENABLE_ALPHA_CLIPPING
+                    clip(baseColor.a - _ClipScale);
+                #endif
+
+                #if ENABLE_BLOOM_MASK
+                    baseColor.a = SAMPLE_TEXTURE2D(_BloomMap, sampler_BloomMap, input.uv.zw).a * baseColor.a;
+                #endif
+
+                if (!_EnableEmission)
+                {
+                    baseColor.a = 0;
+                }
+
+                Light mainLight =  GetMainLight();                  //获取主光源
+                float4 LightColor = float4(mainLight.color.rgb, 1);     //获取主光源颜色
+
+                half3 ShadowColor = baseColor.rgb * _ShadowMultColor;                           //亮部颜色，这里而我们选取主光源颜色作为亮部颜色
+                half3 DarkShadowColor = baseColor.rgb * _DarkShadowMultColor.rgb;                   //暗部颜色，这里为了便于美术后期调整阴影颜色，我们在baseColor上叠加_DarkShadowMultColor.rgb
+
+                float3 shadowTestPosWS = input.positionWS + mainLight.direction * _ReceiveShadowMappingPosOffset;
+                #ifdef _MAIN_LIGHT_SHADOWS
+                    float4 shadowCoord = TransformWorldToShadowCoord(shadowTestPosWS);
+                    mainLight.shadowAttenuation = MainLightRealtimeShadow(shadowCoord);
+                #endif
+
+                half4 LightMapColor = SAMPLE_TEXTURE2D(_LightMap, sampler_LightMap, input.uv.xy);
+
+                // 计算世界空间中的光照和视角方向
+                half3 lightDir = normalize(TransformObjectToWorldDir(_MainLightPosition.xyz));
+                half3 viewDirWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS.xyz);
+                half3 halfViewLightWS = normalize(viewDirWS + mainLight.direction.xyz);
+                half3 halfDir = normalize(viewDirWS + lightDir);
+
+                float3 V = viewDirWS;//视角方向
+                half3 L = mainLight.direction;//光照
+                float3 N = input.normalWS;//法线
+                float3 H = normalize(V + L);//得到我们的半程向量
+                float NH = saturate(dot(N,H)); 
+                float NV = saturate (dot(N,V));
+                float NL = saturate (dot(N,L));
+
+                float SpecularLayerMask = LightMapColor.r;       // ⾼光类型Layer
+                float ShadowAOMask = LightMapColor.g;            //ShadowAOMask
+                float SpecularIntensityMask = LightMapColor.b;   //SpecularIntensityMask
+                float LayerMask = LightMapColor.a;               //LayerMask Ramp类型Layer
+                // return VertexColor.a;                    //描边⼤⼩
+                //Ramp偏移值,值越⼤的区域 越容易"感光"(在⼀个特定的⾓度，偏移光照明暗)
+
+
+                /*光照模型
+
+                
+                float rampVmove = 0.0;
+                half halfLambert = max(0.0, NL) * 0.5 + 0.5;
+
+                float rampValue = halfLambert * (1.0 / _RampShadowRange - 0.003);
+
+                */
+
+                //修改 加入AO
+
+                float rampVmove = 0.0;
+                half halfLambert = max(0.0, NL) * 0.5 + 0.5;
+                ShadowAOMask = 1 - smoothstep(saturate(ShadowAOMask), 0.2, 0.6);             //平滑ShadowAOMask,减弱锯⻮ 
+                //lerp(0.5, 1.0, ShadowAOMask)减弱影响
+                #if ENABLE_RAMP_SHADOW
+                    //为了将ShadowAOMask区域常暗显⽰
+                    float rampValue = halfLambert  * lerp(0.5, 1.0, ShadowAOMask) * (1.0 / _RampShadowRange - 0.003);
+                    
+                    if (_IsNight > 0.5){
+                        rampVmove += 0.5;    //如果是白天，采样上面
+                    }
+                    else{
+                        rampVmove += 0.0;   //如果是夜晚，采样下面
+                    }
+
+                    half3 ShadowRamp1 = SAMPLE_TEXTURE2D(_RampMap, sampler_RampMap, float2(rampValue, 0.45 + rampVmove)).rgb;
+                    half3 ShadowRamp2 = SAMPLE_TEXTURE2D(_RampMap, sampler_RampMap, float2(rampValue, 0.35 + rampVmove)).rgb;
+                    half3 ShadowRamp3 = SAMPLE_TEXTURE2D(_RampMap, sampler_RampMap, float2(rampValue, 0.25 + rampVmove)).rgb;
+                    half3 ShadowRamp4 = SAMPLE_TEXTURE2D(_RampMap, sampler_RampMap, float2(rampValue, 0.15 + rampVmove)).rgb;
+                    half3 ShadowRamp5 = SAMPLE_TEXTURE2D(_RampMap, sampler_RampMap, float2(rampValue, 0.05 + rampVmove)).rgb;           
+
+                    /*
+                    Skin = 1.0
+                    Silk = 0.7
+                    Metal = 0.5
+                    Soft = 0.3
+                    Hand = 0.0
+                    */
+
+
+                    half3 skinRamp = step(abs(LightMapColor.a - 1),     0.015) * ShadowRamp1;  
+                    float3 tightsRamp = step(abs(LightMapColor.a  - 0.7),     0.015) * ShadowRamp2;          
+                    float3 softCommonRamp = step(abs(LightMapColor.a - 0.5), 0.015) * ShadowRamp3;            
+                    half3 hardSilkRamp = step(abs(LightMapColor.a - 0.3),   0.015) * ShadowRamp4;            
+                    half3 metalRamp = step(abs(LightMapColor.a - 0.0),       0.015) * ShadowRamp5;     
+
+                    // 组合5个Ramp，得到最终的Ramp阴影，并根据rampValue与BaseColor结合。
+                    half3 finalRamp = skinRamp + tightsRamp + metalRamp  + hardSilkRamp + softCommonRamp ;
+
+                    /*
+                    原来的分布代码
+                    因为和阴影同时 出现
+                    rampValue =  step(_RampShadowRange, halfLambert) ;
+                    half3 RampShadowColor = lerp(finalRamp * BaseColor.rgb, BaseColor.rgb,  rampValue) ;    
+                    half3 RampShadowColor = rampValue * BaseColor.rgb + (1 - rampValue) * finalRamp * BaseColor.rgb;   
+                    */
+
+                    float3 BaseMapShadowed = lerp(baseColor.rgb * finalRamp , baseColor.rgb, ShadowAOMask);              //分布Ramp 
+
+                    BaseMapShadowed = lerp(baseColor.rgb, BaseMapShadowed * _DarkShadowMultColor.rgb, _ShadowRampLerp);                            //阴影强度
+
+                    float IsBrightSide = ShadowAOMask * step(_LightThreshold, halfLambert);                             //获得亮部、暗部分布
+
+                    float3 Diffuse = lerp(lerp(BaseMapShadowed, baseColor.rgb * finalRamp, _RampAOLerp) * _DarkIntensity ,
+                    _BrightIntensity * BaseMapShadowed ,                                                                //分开亮部
+                    IsBrightSide * _RampIntensity ) * _CharacterIntensity ;
+                    
+
+                    float3 finalRGB = Diffuse;
+
+                    half3 RampShadowColor = finalRGB;
+
+                    ShadowColor = RampShadowColor;
+
+                #endif
+
+                half4 FinalColor;
+                FinalColor.rgb = ShadowColor;
+
+                //根据KEYWORD决定是否使用Ramp阴影
+                #if ENABLE_RAMP_SHADOW
+                    FinalColor.rgb = RampShadowColor;
+                #endif
+
+                // FaceLightMap
+                #if ENABLE_FACE_SHADOW_MAP
+
+                    // 计算光照旋转偏移
+                    float sinx = sin(_FaceShadowOffset);
+                    float cosx = cos(_FaceShadowOffset);
+                    float2x2 rotationOffset = float2x2(cosx, -sinx, sinx, cosx);
+                    
+                    float3 Front = unity_ObjectToWorld._12_22_32;
+                    float3 Right = unity_ObjectToWorld._13_23_33;
+                    float2 lightDir1 = mul(rotationOffset, mainLight.direction.xz);
+
+                    //计算xz平面下的光照角度
+                    float FrontL = dot(normalize(Front.xz), normalize(lightDir1));
+                    float RightL = dot(normalize(Right.xz), normalize(lightDir1));
+                    RightL = - (acos(RightL) / PI - 0.5) * 2;
+
+                    //左右各采样一次FaceLightMap的阴影数据存于lightData
+                    float2 lightData = float2(SAMPLE_TEXTURE2D(_FaceShadowMap, sampler_FaceShadowMap, float2(input.uv.x, input.uv.y)).r,
+                    SAMPLE_TEXTURE2D(_FaceShadowMap, sampler_FaceShadowMap, float2(-input.uv.x, input.uv.y)).r);
+
+                    //修改lightData的变化曲线，使中间大部分变化速度趋于平缓。
+                    lightData = pow(abs(lightData), _FaceShadowMapPow);
+
+                    //根据光照角度判断是否处于背光，使用正向还是反向的lightData。
+                    float lightAttenuation = step(0, FrontL) * min(step(RightL, lightData.x), step(-RightL, lightData.y));
+                    
+                    half3 FaceColor = lerp(ShadowColor.rgb * _FaceDarkIntensity , baseColor.rgb, lightAttenuation);
+                    FinalColor.rgb = FaceColor;
+                #endif
+
+                // Blinn-Phong
+
+                //==========================================================================================
+                // 高光
+                half4 BlinnPhongSpecular;
+                half4 MetalSpecular;
+                half4 StepSpecular;
+                half4 FinalSpecular;
+
+                // ILM的R通道，灰色为裁边视角高光
+                half StepMask = step(0.2, SpecularLayerMask) - step(0.8, SpecularLayerMask);
+                StepSpecular = step(1 - _StepSpecularGloss, saturate(dot(input.normalWS, viewDirWS))) * _StepSpecularIntensity * StepMask;
+                // ILM的R通道，白色为 Blinn-Phong + 金属高光
+                half MetalMask = step(0.9, SpecularLayerMask);
+                // Blinn-Phong
+                BlinnPhongSpecular = pow(max(0, dot(input.normalWS, halfDir)), _BlinnPhongSpecularGloss) * _BlinnPhongSpecularIntensity * MetalMask;
+                // 金属高光
+                float2 MetalMapUV = mul((float3x3) UNITY_MATRIX_V, input.normalWS).xy * 0.5 + 0.5;
+
+                float MetalMap = SAMPLE_TEXTURE2D(_MetalMap, sampler_MetalMap, MetalMapUV).r;
+
+                MetalMap = step(_MetalSpecularGloss, MetalMap);
+
+                MetalSpecular = MetalMap * _MetalSpecularIntensity * MetalMask * _EnableMetalSpecular;
+                
+                FinalSpecular = StepSpecular + BlinnPhongSpecular + MetalSpecular;
+                FinalSpecular = lerp(0, baseColor * FinalSpecular * _SpecularColor, SpecularIntensityMask) ;
+                FinalSpecular *= halfLambert * ShadowAOMask * _SpecMulti * _EnableSpecular;
+
+                half4 SpecDiffuse;
+                SpecDiffuse.rgb = FinalSpecular.rgb + FinalColor.rgb;
+                SpecDiffuse.a = FinalSpecular.a * _BloomFactor * 10;
+
+                //==========================================================================================
+                // 屏幕空间深度等宽边缘光
+                // 屏幕空间UV
+                float2 RimScreenUV = float2(input.positionCS.x / _ScreenParams.x, input.positionCS.y / _ScreenParams.y);
+                // 法线外扩偏移UV，把worldNormal转换到NDC空间
+                float3 smoothNormal = normalize(UnpackNormalmapRGorAG(input.color));
+                float3x3 tangentTransform = float3x3(input.worldTangent, input.worldBiTangent, input.normalWS);
+                float3 worldRimNormal = normalize(mul(smoothNormal, tangentTransform));
+                float2 RimOffsetUV = float2(mul((float3x3) UNITY_MATRIX_V, worldRimNormal).xy * _RimOffsets * 0.01 / input.positionCS.w);
+                RimOffsetUV += RimScreenUV;
+                
+                float ScreenDepth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_CameraDepthTexture, RimScreenUV);
+                float Linear01ScreenDepth = LinearEyeDepth(ScreenDepth, _ZBufferParams);
+                float OffsetDepth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_CameraDepthTexture, RimOffsetUV);
+                float Linear01OffsetDepth = LinearEyeDepth(OffsetDepth, _ZBufferParams);
+
+                float diff = Linear01OffsetDepth - Linear01ScreenDepth;
+                float rimMask = step(_RimThresholds * 0.1, diff);
+                // 边缘光颜色的a通道用来控制边缘光强弱
+                half4 RimColors = float4(rimMask * _RimColors.rgb * _RimColors.a, 1) * _EnableRims;
+
+                // Rim Light
+                float lambertF = dot(mainLight.direction, input.normalWS);
+                float lambertD = max(0, -lambertF);
+                lambertF = max(0, lambertF);
+                float rim = 1 - saturate(dot(viewDirWS, input.normalWS));
+
+                float rimDot = pow(rim, _RimPow);
+                rimDot = _EnableLambert * lambertF * rimDot + (1 - _EnableLambert) * rimDot;
+                float rimIntensity = smoothstep(0, _RimSmooth, rimDot);
+                half4 Rim = _EnableRim * pow(rimIntensity, 5) * _RimColor * baseColor;
+                Rim.a = _EnableRim * rimIntensity * _BloomFactor;
+
+                rimDot = pow(rim, _DarkSideRimPow);
+                rimDot = _EnableLambert * lambertD * rimDot + (1 - _EnableLambert) * rimDot;
+                rimIntensity = smoothstep(0, _DarkSideRimSmooth, rimDot);
+                half4 RimDS = _EnableRimDS * pow(rimIntensity, 5) * _DarkSideRimColor * baseColor;
+                RimDS.a = _EnableRimDS * rimIntensity * _BloomFactor;
+
+                // Emission & Bloom
+                half4 Emission;
+                Emission.rgb = _Emission * DarkShadowColor.rgb * _EmissionColors.rgb - SpecDiffuse.rgb;
+                Emission.a = _EmissionBloomFactor * baseColor.a;
+
+                half4 SpecRimEmission;
+                SpecRimEmission.rgb = pow(DarkShadowColor, 1) * _Emission;
+                SpecRimEmission.a = (SpecDiffuse.a + Rim.a + RimDS.a);
+
+                FinalColor = SpecDiffuse + Rim + RimColors + Emission.a * Emission + SpecRimEmission.a * SpecRimEmission;
+
+                FinalColor = (_WorldLightInfluence * LightColor * FinalColor + (1 - _WorldLightInfluence) * FinalColor);
+
+                float alpha = _Alpha;
+
+                float4 FinalColors = float4(FinalColor.rgb, alpha);
+                float3 positionWS = input.positionWSAndFogFactor.xyz;
+                FinalColors.rgb = MixFog(FinalColors.rgb, input.positionWSAndFogFactor.w);
+
+                return FinalColors;
+            }
+
+            #else
+                float4 ToonPassFragment(v2f input) : SV_TARGET
+                {
+                    return 0;
+                }
+            #endif
+
+            ENDHLSL
         }
 
         Pass
@@ -702,116 +1026,98 @@
 
         }
 
-        //this Pass copy from https://github.com/ColinLeung-NiloCat/UnityURPToonLitShaderExample
         Pass
         {
             Name "ShadowCaster"
-            Tags { "LightMode" = "ShadowCaster" }
-            
-            //we don't care about color, we just write to depth
-            ColorMask 0
-            
-            HLSLPROGRAM
-            
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-            
-            #pragma vertex ShadowCasterPassVertex
-            #pragma fragment ShadowCasterPassFragment
+            Tags{"LightMode" = "ShadowCaster"}
 
-            v2f ShadowCasterPassVertex(a2v input)
-            {
-                
-                v2f output = (v2f)0;
-                
-                // VertexPositionInputs contains position in multiple spaces (world, view, homogeneous clip space)
-                // Our compiler will strip all unused references (say you don't use view space).
-                // Therefore there is more flexibility at no additional cost with this struct.
-                VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS);
-                
-                // Similar to VertexPositionInputs, VertexNormalInputs will contain normal, tangent and bitangent
-                // in world space. If not used it will be stripped.
-                VertexNormalInputs vertexNormalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
-                
-                // Computes fog factor per-vertex.
-                float fogFactor = ComputeFogFactor(vertexInput.positionCS.z);
-                
-                // TRANSFORM_TEX is the same as the old shader library.
-                output.uv.xy = TRANSFORM_TEX(input.texcoord, _MainTex);
-                
-                // packing posWS.xyz & fog into a vector4
-                output.positionWSAndFogFactor = float4(vertexInput.positionWS, fogFactor);
-                output.normalWS = vertexNormalInput.normalWS;
-                
-                #ifdef _MAIN_LIGHT_SHADOWS
-                    // shadow coord for the light is computed in vertex.
-                    // After URP 7.21, URP will always resolve shadows in light space, no more screen space resolve.
-                    // In this case shadowCoord will be the vertex position in light space.
-                    output.shadowCoord = GetShadowCoord(vertexInput);
-                #endif
-                
-                // Here comes the flexibility of the input structs.
-                // We just use the homogeneous clip position from the vertex input
-                output.positionCS = vertexInput.positionCS;
-                
-                // ShadowCaster pass needs special process to clipPos, else shadow artifact will appear
-                //--------------------------------------------------------------------------------------
-                
-                //see GetShadowPositionHClip() in URP/Shaders/ShadowCasterPass.hlsl
-                float3 positionWS = vertexInput.positionWS;
-                float3 normalWS = vertexNormalInput.normalWS;
-                
-                
-                Light light = GetMainLight();
-                float4 positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, normalWS, light.direction));
-                
-                #if UNITY_REVERSED_Z
-                    positionCS.z = min(positionCS.z, positionCS.w * UNITY_NEAR_CLIP_VALUE);
-                #else
-                    positionCS.z = max(positionCS.z, positionCS.w * UNITY_NEAR_CLIP_VALUE);
-                #endif
-                output.positionCS = positionCS;
-                
-                //--------------------------------------------------------------------------------------
-                
-                return output;
-            }
+            ZWrite [_ZWrite]
+            ZTest LEqual
+            ColorMask 0
+            Cull[_Cull]
+
+            HLSLPROGRAM
+            #pragma exclude_renderers gles gles3 glcore
+            #pragma target 4.5
+
+            // Material keywords
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+
+            // GPU Instancing
+            #pragma multi_compile_instancing
+            #pragma multi_compile _ DOTS_INSTANCING_ON
+
+            // This is used during shadow map generation to differentiate between directional and punctual light shadows, as they use different formulas to apply Normal Bias
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
             
-            half4 ShadowCasterPassFragment(v2f input): SV_TARGET
-            {
-                return 0;
-            }
-            
+            #pragma vertex ShadowPassVertex // 和後面的include 有關係
+            #pragma fragment ShadowPassFragment
+
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
             ENDHLSL
-            
         }
+
         Pass
         {
             Name "DepthOnly"
-            Tags { "LightMode" = "DepthOnly" }
+            Tags{"LightMode" = "DepthOnly"}
 
-            // more explict render state to avoid confusion
-            ZWrite On // the only goal of this pass is to write depth!
-            ZTest LEqual // early exit at Early-Z stage if possible            
-            ColorMask 0 // we don't care about color, we just want to write depth, ColorMask 0 will save some write bandwidth
-            Cull Back // support Cull[_Cull] requires "flip vertex normal" using VFACE in fragment shader, which is maybe beyond the scope of a simple tutorial shader
+            ZWrite [_ZWrite]
+            ColorMask 0
+            Cull[_Cull]
 
             HLSLPROGRAM
+            #pragma exclude_renderers gles gles3 glcore
+            #pragma target 4.5
 
-            #pragma vertex OutlinePassVertex
-            #pragma fragment FragmentAlphaClip
-            
+            #pragma vertex DepthOnlyVertex // 和後面的include 有關係
+            #pragma fragment DepthOnlyFragment
+
+            // Material keywords
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+
+            // GPU Instancing
+            #pragma multi_compile_instancing
+            #pragma multi_compile _ DOTS_INSTANCING_ON
+
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
             ENDHLSL
-
-        }         
-
+        }
 
         Pass
         {
             Name "DepthNormals"
             Tags{"LightMode" = "DepthNormals"}
 
-            //...
+            ZWrite [_ZWrite]
+            Cull[_Cull]
+
+            HLSLPROGRAM
+            #pragma exclude_renderers gles gles3 glcore
+            #pragma target 4.5
+
+            #pragma vertex DepthNormalsVertex // 和後面的include 有關係
+            #pragma fragment DepthNormalsFragment
+
+            // Material keywords
+            #pragma shader_feature_local _NORMALMAP 
+            #pragma shader_feature_local _PARALLAXMAP
+            #pragma shader_feature_local _ _DETAIL_MULX2 _DETAIL_SCALED
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+
+            // GPU Instancing
+            #pragma multi_compile_instancing
+            #pragma multi_compile _ DOTS_INSTANCING_ON
+
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitDepthNormalsPass.hlsl"
+            ENDHLSL
         }
+
     }
 }

@@ -1,17 +1,21 @@
 # GenshinCelShaderURP
-
+  
 ## What's This?
-这是一个基于Unity引擎URP管线的卡通渲染项目，经过一段时间修改后基本做成这样的集合式使用了，技术难度整体不大，主要是整合了各位大佬们的工程，取其精华并整合封装到一套shader当中，目前shader依旧使用了unlit，预计未来会转lit，本着分享的开源精神还是决定将本项目分享给大家，也希望通过开源的方式提高代码质量，我们的目的是创建一套能还原原神角色卡通渲染方式的渲染库，在保证易用性的同时保持扩展性 ，同时兼顾PC端、移动端、主机端的兼容性、性能和效果。
-
+  
+这是一个基于Unity引擎URP管线的卡通渲染项目，经过一段时间修改后基本做成这样的集合式使用了，技术难度整体不大，主要是整合了各位大佬们的工程，进行了一段时间的效果调研，取其精华并整合封装到一套shader当中，目前shader依旧使用了unlit，预计未来会转lit，本着分享的开源精神还是决定将本项目分享给大家，也希望通过开源的方式提高代码质量，我们的目的是创建一套能还原原神角色卡通渲染方式的渲染库，在保证易用性的同时保持扩展性 ，同时兼顾PC端、移动端、主机端的兼容性、性能和效果。
+  
 ## Installation & Usage
+  
 只需将/Shaders/GenshinCelShaderURP/路径下解压对应版本的文件夹到你的Assets即可在材质球中看到添加的shader。
 在开始之前，你至少需要准备如下的贴图，如果不知道如何获取他们，可以参考B站 @小二今天吃啥啊 的这个教程，[链接](https://www.bilibili.com/video/BV1t34y1H7jt/)
-
+  
 ![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/v2-a3d4261c39610463c839c9ecb0a07074_r.jpg)  
-![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/v2-940ac11643928df7ad332a6f89369873_r.jpg)  
+![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/v2-940ac11643928df7ad332a6f89369873_r.jpg)   
+  
 > (1)RGBA通道的身体Base Map (2)RGBA通道的身体Light Map(ILM Map) (3)身体Shadow Ramp (4)面部Base Map (5)面部阴影SDF阈值图 (6)头发Base Map (7)RGBA通道的头发LightMap(ILM Map) (8)头发ShadowRamp (9)面部阴影Mask (10)金属光泽Map
 
 ### 贴图示例：
+  
 > 一般  
 ![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/Example01.PNG)  
 ![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/Example02.PNG)  
@@ -22,27 +26,29 @@
 ![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/Example05.PNG)  
 
 ## Support
-关于shader兼容性（通用性），目前仅限于工作在URP管线中，可以使用的游戏如下：  
   
-《原神》（推荐）、《崩坏3》、《崩坏：星穹铁道》（推荐）、《绝区零》（待测）、《罪恶装备》、《地下城与勇士：决斗》、《战双帕米什》等，
+关于shader兼容性（通用性），目前仅限于工作在URP的Forward管线中，如果需要在延迟管线中使用请自行设置Render Objects
   
   PS.不同游戏开发商对于ilm贴图处理方式稍有不同，可以根据自己需要修改与定制，理论上只要有ilm（表现物体阴影、高光及反射面）和脸部sdf阴影阈值图的都可以使用该shader，这里值得说明的是，《崩坏3》旧角色ilm贴图做法和新角色稍有不同，没有alpha通道控制ramp采样区域，效果会稍差点，这可能需要各位手动调色了。
 
 ## For Sample Models
+  
 示例用的模型和贴图附在/Model路径下，模型来源：模之屋，[链接](https://www.aplaybox.com/details/model/xuBcQCqsVWfC)可以用于结合我的shader进行测试，模型最终解释权归mihoyo所有，切勿商用。
 
 ## For Generate Ramp Texture Tool
+  
 该配套工具是用于在Unity Editor中创建适用于该shader的ramp texture，即可根据自己需求定制ramp color，具体食用方法可参考[此处](https://www.bilibili.com/video/BV17h411b73u?spm_id_from=333.999.0.0)  
   
 ## About Ramp Texture
+  
 该方法是Diffuse Warp(Warped Diffuse)方式，在这个方法中使用了Ramp贴图。  
 ![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/v2-3238fd61d9ea2263c37da4baa207700c_720w.webp)  
   
 贴图如上。  
   
 《军团要塞2》最先使用了该Shading方法，也颇具历史意义。不仅可表现鲜明的明暗，还能表现柔和的明暗表现。我也比较常用这个方法。
-
-相关资料 - [https://steamcdn-a.akamaihd.net..](https://steamcdn-a.akamaihd.net/apps/valve/2007/NPAR07_IllustrativeRenderingInTeamFortress2.pdf)  
+  
+相关资料 - [https://steamcdn-a.akamaihd.net..](https://steamcdn-a.akamaihd.net/apps/valve/2007/NPAR07_IllustrativeRenderingInTeamFortress2.pdf)
   
 大家可以结合上面的Ramp贴图和下方的实现效果一起看下，就能知道Ramp贴图是如何影响结果的。我们可以这样理解，采样RampTexture时，把HalfLambert值应用于UV上，HalfLambert值是暗的话，映射纹理的左边，亮的话映射纹理的右边。
   
@@ -52,11 +58,12 @@
   
 如在<崩坏3 MMD>中，利用顶点颜色绘制（Vertex color painting），把UV的Y轴移到顶点颜色值，直接调整软硬明暗效果。（MMDshader和游戏内shader的实现方式不同。）
   
-在<军团DOTA2>中，额外使用了一张Diffuse Warp Mask纹理。  
+在<军团DOTA2>中，额外使用了一张Diffuse Warp Mask纹理。
   
 ![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/v2-50953ab49d5f060db9f112c7be1a950c_720w.webp)  
   
-被遮罩的部分，通过采样ramp图来实现明暗渐变。把采样坐标值存入顶点色中更助于优化。  
+被遮罩的部分，通过采样ramp图来实现明暗渐变。把采样坐标值存入顶点色中更助于优化。
+  
 ![图片](https://github.com/Gaolingx/GenshinCelShaderURP/raw/main/Pictures/a0952ceac6400d355c83a6b2e39698de_2941402384386001310.png)  
   
 原神相比崩三，在diffuse基础色上多了ramp阴影实现漫反射，在卡通渲染这类npr渲染当中，我们通常会通过冷暖色调分离、硬化阴影边缘等多重手段来使画面达到风格化的目的，例如《原神》这种利用ilm贴图配合ramp texture实现色调控制的方法，其实《原神》这种用ilm贴图配合ramp实现色调控制的方法，其实早在好几年前《GUILTY GEAR Xrd》就已经存在类似的实现了，《罪恶装备》和《崩坏三》同样是这种思路的延续，只不过放到原神这边是有一张单独的ramp texture2D，原神里面角色Albedo的颜色本身并不依赖于任何光源（也有可能依靠后处理实现，不是特别确定），而是靠采样RampColor（漫反射的DarkSide部分，由diffuse*RampColor得到，BrightSide则为diffuse。根据LightMap.a通道的不同值域，选择Ramp图中的不同层。Ramp有两张，头发和身体各一张，共10层，分上下两部分，前5行为暖色调阴影，后5行为冷色调阴影，对应着夜晚与⽩天。）结合diffuse实现整个Albedo颜色。如下图。  
@@ -80,12 +87,13 @@ LightMap.g :阴影AO ShadowAOMask，可以理解为二级阴影，也就是不�
 LightMap.b :BltMap.a :Raask SpecularIntensityMa制漫反射暗部颜色，htMap.a :Ramp类型Layer，根据值域选择不同的Ramp（控制漫反射暗部颜色，非常重要）
   
 LightMap.a :Ramp类型Layer，根据值域选择不同的Ramp（控制漫反射暗部颜色，非常重要，待会介绍）
-
-VertexColor.g :Ramp偏移值,值越⼤的区域 越容易"感光"(在⼀个特定的⾓度，偏移光照明暗) 
-
+  
+VertexColor.g :Ramp偏移值,值越⼤的区域 越容易"感光"(在⼀个特定的⾓度，偏移光照明暗)
+  
 VertexColor.a :描边粗细 
   
 ## Thanks
+  
 鸣谢以下大佬们提交的代码（排名不分先后）：
   
 1、[Zzzzohar](https://github.com/Zzzzohar)（Generate Ramp Texture Tool）  
@@ -99,32 +107,12 @@ VertexColor.a :描边粗细
   
 4、[YuiLu](https://github.com/YuiLu)（shader ramp漫反射及tex采样、头发裁边视角高光、金属高光、屏幕空间深度等宽边缘光）  
 [https://github.com/YuiLu/GenshinCharacterShading](https://github.com/YuiLu/GenshinCharacterShading)
-
+  
 5、[T.yz（知乎）](https://www.zhihu.com/people/you-ma-wei-7)（v3版本diffuse模块，包括ramp采样，结合，光照模型，ao等）  
 [https://zhuanlan.zhihu.com/p/547129280](https://zhuanlan.zhihu.com/p/547129280)  
-
   
-
-## Future
-我们未来预计将在现有版本的基础上加入以下新特性：  
-1、改进基于PBR并适用于卡通渲染的光照模型。（重点优化多光源加权合成，使用lit代替旧版unlit）。  
-2、基于后处理的2D头发刘海投影。  
-3、面部和身体的法线贴图。  
-4、AutoColor自动着色+风格化多光源加权（简单理解就是通过不断采样环境光和间接光源的颜色叠加到basecolor上面，这样角色的亮部和暗部做到与环境统一的效果，并设置阈值防止过曝或欠曝，而且支持风格化的多光源并可以随环境实时变化（依靠C#脚本实现，可能要改gi））。  
-5、使用LightMap的Alpha通道（也有可能是顶点色）制作了彩色的描边，仅限皮肤区域。  
-6、改进边缘光，在原本菲涅尔边缘光的基础上新增屏幕空间深度等宽边缘光的特性（用于处理屏幕空间的边缘光，V2.1Beta之后已实现）。  
-7、可分区自定义的描边颜色（依据材质，已实现）。  
-8、随视角变化的头发高光。（目前暂定跟随主光源方向）  
-9、优化二分阴影平滑度，平滑色阶，减少锯齿。（halfLambert卡通光照模型优化相关）（V3.0版本已优化）。  
-10、延迟渲染适配，可能会参考一下uts。  
-11、SRP批次优化。  
-12、眼球材质优化（基于pbr，模拟ior折射，环境反射、焦散等效果，打算新建一个项目）。  
-13、增加皮肤sss材质支持。  
-14、反深度睫毛、眉毛。  
-15、针对basecolor使用Tonemaping映射来矫正贴图颜色。（每个角色在不同的场景与不同的光照环境下所展现的色调饱和度或者说冷暖色不一样，所以我采用了RGB校色 去调整角色在每个不同场景的基础色调取向）。  
-  
-
 ## Rules
+  
 为了规范项目的使用，你可以将其用于...  
 卡通渲染相关知识学习、了解HLSL基本语法结构、个人独立游戏开发（相关代码需要遵循MIT许可进行开源）、根据自己需求定制修改源码、MMD等影视制作（如要使用此shader时请在片尾或简介中署名Thanks名单中的名字（可以不写我的名字））  
   
@@ -147,9 +135,11 @@ VertexColor.a :描边粗细
 ※请遵守动作&模型的规约。
   
 ## Links
-欲了解更多作者相关信息欢迎访问：
+  
+欲了解更多作者相关信息欢迎访问：  
 [米游社@爱莉小跟班gaolx](https://www.miyoushe.com/dby/accountCenter/postList?id=277273444)、[Bilibili@galing2333](https://space.bilibili.com/457123942?spm_id_from=..0.0)
   
 ## End
+  
 最后，希望大家玩得开心，这个项目任将持续进行更新，如果对我们的项目感兴趣记得给一个star，这便是对我们最好的鼓励与支持，由于本人仅仅是高三的学牲，敲代码水平有限qwq，如有不足之处希望谅解，如果你针对shader部分有任何好的想法，意见或建议欢迎在Issues中讨论或者提交你的PR哟。也可以通过邮箱联系我（gaolingxiang123@163.com），If you feel that my works are worthwhile, I would greatly appreciate it if you could sponsor me.
 

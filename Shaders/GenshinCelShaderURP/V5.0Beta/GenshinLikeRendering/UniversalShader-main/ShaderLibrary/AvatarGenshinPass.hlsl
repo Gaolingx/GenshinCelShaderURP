@@ -167,6 +167,7 @@ half4 GenshinStyleFragment(Varyings input) : SV_Target
     //将ilmTexture看作光源的数值，那么原UV采样得到的图片是光从角色左侧打过来的效果，且越往中间，所需要的亮度越低。lightThreshold作为点亮区域所需的光源强度
     float2 ilmTextureUV = rdotl < 0.0 ? input.uv : float2(1.0 - input.uv.x, input.uv.y);
     float lightThreshold = 0.5 * (1.0 - fdotl);
+    lightThreshold += _FaceShadowOffset;
     
     half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, ilmTextureUV);
     half4 metalTexCol = SAMPLE_TEXTURE2D(_MetalTex, sampler_MetalTex, input.uv);

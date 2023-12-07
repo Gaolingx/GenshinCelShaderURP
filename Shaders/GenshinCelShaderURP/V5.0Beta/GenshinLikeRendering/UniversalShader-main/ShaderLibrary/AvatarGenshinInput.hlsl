@@ -42,6 +42,7 @@ half4 _LightAreaColorTint;
 float _RampCount;
 float _ShadowRampWidth;
 float _HairShadowDistance;
+float _FaceShadowOffset;
 half4 _MainTexColoring;
 half4 _DarkShadowColor;
 half4 _CoolDarkShadowColor;

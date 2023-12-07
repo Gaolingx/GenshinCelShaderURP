@@ -24,6 +24,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _RampCount("Ramp Count", Int) = 3
         _ShadowRampWidth("Shadow Ramp Width", Range(0.0, 1.0)) = 1.0
         _HairShadowDistance("Hair Shadow Distance", Range(0.0, 1.0)) = 0.5
+        _FaceShadowOffset ("Face Shadow Offset", range(-1.0, 1.0)) = 0.0
         _MainTexColoring("Main Texture Coloring", Color) = (1.0, 1.0, 1.0, 1.0)
         _DarkShadowColor("Dark Shadow Color Tint", Color) = (0.75, 0.75, 0.75, 1.0)
         _CoolDarkShadowColor("Cool Dark Shadow Color Tint", Color) = (0.5, 0.5, 0.65, 1.0)

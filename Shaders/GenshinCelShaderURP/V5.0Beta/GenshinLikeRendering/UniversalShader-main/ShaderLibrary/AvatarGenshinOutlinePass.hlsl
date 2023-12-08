@@ -18,6 +18,7 @@ struct Varyings
 {
     float4 positionCS : SV_POSITION;
     float2 uv : TEXCOORD0;
+    float fogFactor : TEXCOORD1;
 };
 
 Varyings BackFaceOutlineVertex(Attributes input)
@@ -59,6 +60,9 @@ Varyings BackFaceOutlineVertex(Attributes input)
     output.positionCS = NiloGetNewClipPosWithZOffset(output.positionCS, _OutlineZOffset + 0.03 * _IsFace);
     
     output.uv = input.uv;
+
+    output.fogFactor = ComputeFogFactor(vertexPositionInputs.positionCS.z);
+
     return output;
 }
 
@@ -78,6 +82,8 @@ half4 BackFaceOutlineFragment(Varyings input) : SV_Target
         half4 finalOutlineColor = (1.0 - (areaMask1 + areaMask2 + areaMask3 + areaMask4 + areaMask5)) * _OutlineColor1 + areaMask2 * _OutlineColor2 + areaMask3 * _OutlineColor3 + areaMask4 * _OutlineColor4 + areaMask5 * _OutlineColor5;
     #endif
     
+    finalOutlineColor.rgb = MixFog(finalOutlineColor.rgb, input.fogFactor);
+
     return finalOutlineColor;
 }
 

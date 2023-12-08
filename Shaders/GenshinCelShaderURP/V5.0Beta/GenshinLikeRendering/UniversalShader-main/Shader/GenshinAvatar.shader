@@ -51,6 +51,8 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         [Header(Outline)]
         [Toggle(_OUTLINE_ON)] _UseOutline("Use outline (Default YES)", float ) = 1
         _OutlineWidthAdjustScale("Outline Width Adjust Scale", Range(0.0, 1.0)) = 1.0
+        [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color (Default NO)", float ) = 0
+        _CustomOutlineCol("Custom Outline Color", Color) = (1.0, 1.0, 1.0, 1.0)
         _OutlineColor1("Outline Color 1", Color) = (0.0, 0.0, 0.0, 1.0)
         _OutlineColor2("Outline Color 2", Color) = (0.1, 0.1, 0.1, 1.0)
         _OutlineColor3("Outline Color 3", Color) = (0.2, 0.2, 0.2, 1.0)
@@ -133,6 +135,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             #pragma fragment BackFaceOutlineFragment
             #pragma shader_feature_local _ _USESMOOTHNORMAL_VERTEXCOLOR _USESMOOTHNORMAL_NORMALTEXTURE _USESMOOTHNORMAL_NULL
             #pragma shader_feature_local _OUTLINE_ON
+            #pragma shader_feature_local _OUTLINE_CUSTOM_COLOR_ON
             
             #if _OUTLINE_ON
             

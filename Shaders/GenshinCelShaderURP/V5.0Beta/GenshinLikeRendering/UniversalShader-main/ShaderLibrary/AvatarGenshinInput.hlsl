@@ -68,6 +68,7 @@ float _RimLightBrightness;
 float _RimLightMixAlbedo;
 
 //Outline
+half4 _CustomOutlineCol;
 half4 _OutlineColor1;
 half4 _OutlineColor2;
 half4 _OutlineColor3;

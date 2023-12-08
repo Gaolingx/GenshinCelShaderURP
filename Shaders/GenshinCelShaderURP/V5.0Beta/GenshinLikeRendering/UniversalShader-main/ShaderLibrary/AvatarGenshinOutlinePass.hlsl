@@ -67,9 +67,14 @@ half4 BackFaceOutlineFragment(Varyings input) : SV_Target
     half areaMask3 = step(0.55, outlineColorMask) - step(0.75, outlineColorMask);
     half areaMask4 = step(0.75, outlineColorMask) - step(0.95, outlineColorMask);
     half areaMask5 = step(0.95, outlineColorMask);
-    half4 finalColor = (1.0 - (areaMask1 + areaMask2 + areaMask3 + areaMask4 + areaMask5)) * _OutlineColor1 + areaMask2 * _OutlineColor2 + areaMask3 * _OutlineColor3 + areaMask4 * _OutlineColor4 + areaMask5 * _OutlineColor5;
 
-    return finalColor;
+    #if _OUTLINE_CUSTOM_COLOR_ON
+        half4 finalOutlineColor = _CustomOutlineCol;
+    #else
+        half4 finalOutlineColor = (1.0 - (areaMask1 + areaMask2 + areaMask3 + areaMask4 + areaMask5)) * _OutlineColor1 + areaMask2 * _OutlineColor2 + areaMask3 * _OutlineColor3 + areaMask4 * _OutlineColor4 + areaMask5 * _OutlineColor5;
+    #endif
+    
+    return finalOutlineColor;
 }
 
 #endif

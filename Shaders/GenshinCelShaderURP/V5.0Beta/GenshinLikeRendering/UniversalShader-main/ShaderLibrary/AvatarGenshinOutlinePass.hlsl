@@ -3,6 +3,7 @@
 
 #include "../ShaderLibrary/AvatarGenshinInput.hlsl"
 #include "../ShaderLibrary/AvatarBackFacingOutline.hlsl"
+#include "../ShaderLibrary/NiloZOffset.hlsl"
 
 struct Attributes
 {
@@ -53,6 +54,9 @@ Varyings BackFaceOutlineVertex(Attributes input)
     float2 outlinePositionOffsetCS = GetOutlinedOffsetHClip(outlineData);
     output.positionCS = vertexPositionInputs.positionCS;
     output.positionCS.xy += outlinePositionOffsetCS * input.vertexColor.a;
+    
+    // [Apply ZOffset, Use remapped value as ZOffset mask]
+    output.positionCS = NiloGetNewClipPosWithZOffset(output.positionCS, _OutlineZOffset + 0.03 * _IsFace);
     
     output.uv = input.uv;
     return output;

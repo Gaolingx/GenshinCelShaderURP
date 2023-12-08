@@ -69,6 +69,7 @@ half4 GenshinStyleFragment(Varyings input) : SV_Target
     float AOMask = step(0.02, ilmTexCol.g);
     float brightAreaMask = AOMask * halfLambert;
 
+    half3 diffuseColor = 0;
     //Diffuse
     float2 rampUV;
     //对原神Ramp X轴处理：
@@ -91,23 +92,29 @@ half4 GenshinStyleFragment(Varyings input) : SV_Target
     #endif
     half3 ShadowColorTint = lerp(darkShadowColor.rgb, rampTexCol, AOMask);
     ShadowColorTint = lerp(_NeckColor.rgb, ShadowColorTint, input.vertexColor.b);
-    half3 diffuseColor = ShadowColorTint * mainTexCol.rgb;
+    diffuseColor = ShadowColorTint * mainTexCol.rgb;
 
-    //Specular
-    float3 viewDirectionWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS.xyz);
-    float3 halfDirectionWS = normalize(viewDirectionWS + mainLightDirection);
-    float hdotl = max(dot(halfDirectionWS, input.normalWS.xyz), 0.0);
-    //非金属高光
-    float nonMetalSpecular = step(1.0 - 0.5 * _NonMetalSpecArea, pow(hdotl, _Shininess)) * ilmTexCol.r;
-    //金属高光
-    //ilmTexture中，r通道控制Blinn-Phong高光的系数，b通道控制Metal Specular的范围
-    float2 normalCS = TransformWorldToHClipDir(input.normalWS.xyz).xy * 0.5 + float2(0.5, 0.5);
-    float metalTexCol = saturate(SAMPLE_TEXTURE2D(_MetalTex, sampler_MetalTex, normalCS)).r * _MTMapBrightness;
-    float metalBlinnPhongSpecular = pow(hdotl, _MTShininess) * ilmTexCol.r;
-    float metalSpecular = ilmTexCol.b * metalBlinnPhongSpecular * metalTexCol;
-    half3 specularColor = (metalSpecular * _MTSpecularScale + nonMetalSpecular) * diffuseColor;
-    half3 FinalSpecCol = specularColor * _SpecMulti;
-
+    half3 FinalSpecCol = 0;
+    #if _SPECULAR_ON
+        //Specular
+        float3 viewDirectionWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS.xyz);
+        float3 halfDirectionWS = normalize(viewDirectionWS + mainLightDirection);
+        float hdotl = max(dot(halfDirectionWS, input.normalWS.xyz), 0.0);
+        //非金属高光
+        float nonMetalSpecular = step(1.0 - 0.5 * _NonMetalSpecArea, pow(hdotl, _Shininess)) * ilmTexCol.r;
+        //金属高光
+        //ilmTexture中，r通道控制Blinn-Phong高光的系数，b通道控制Metal Specular的范围
+        float2 normalCS = TransformWorldToHClipDir(input.normalWS.xyz).xy * 0.5 + float2(0.5, 0.5);
+        float metalTexCol = saturate(SAMPLE_TEXTURE2D(_MetalTex, sampler_MetalTex, normalCS)).r * _MTMapBrightness;
+        float metalBlinnPhongSpecular = pow(hdotl, _MTShininess) * ilmTexCol.r;
+        float metalSpecular = ilmTexCol.b * metalBlinnPhongSpecular * metalTexCol;
+        half3 specularColor = (metalSpecular * _MTSpecularScale + nonMetalSpecular) * diffuseColor;
+        
+        FinalSpecCol = specularColor * _SpecMulti;
+    #else
+        FinalSpecCol = 0;
+    #endif
+    
     //边缘光部分
     float3 rimLightColor;
     #if _RIM_LIGHTING_ON

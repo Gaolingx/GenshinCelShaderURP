@@ -31,6 +31,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _NeckColor("Neck Color Tint", Color) = (0.75, 0.75, 0.75, 1.0)
         
         [Header(Specular)]
+        [Toggle(_SPECULAR_ON)] _EnableSpecular ("Enable Specular (Default YES)", float) = 1
         _MetalTex("Metal Texture", 2D) = "Gray"{}
         _MTMapBrightness("Metal Map Brightness", Range(0.0, 10.0)) = 3.0
         _MTShininess("Metal Shininess", Range(0.0, 100.0)) = 90.0
@@ -117,6 +118,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             #pragma shader_feature_fragment _ _USEFACELIGHTMAPCHANNEL_R _USEFACELIGHTMAPCHANNEL_A
             #pragma shader_feature_local_fragment _USERAMPLIGHTAREACOLOR_ON
             #pragma shader_feature_local _EMISSION_ON
+            #pragma shader_feature_local _SPECULAR_ON
             #pragma shader_feature_local _RIM_LIGHTING_ON
             
             #include "../ShaderLibrary/AvatarGenshinPass.hlsl"

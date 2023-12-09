@@ -40,7 +40,8 @@ Varyings GenshinStyleVertex(Attributes input)
 
 half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : SV_Target
 {
-    half4 mainTexCol = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv) * _MainTexColoring;
+    half4 BaseMap = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
+    half4 mainTexCol =  BaseMap * _MainTexColoring;
     //给背面填充颜色，对眼睛，丝袜很有用
     mainTexCol.rgb *= lerp(_BackFaceTintColor, _FrontFaceTintColor, isFrontFace);
     

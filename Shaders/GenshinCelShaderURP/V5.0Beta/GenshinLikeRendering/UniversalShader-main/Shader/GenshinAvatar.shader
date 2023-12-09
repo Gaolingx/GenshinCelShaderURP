@@ -8,8 +8,6 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         [Toggle]_UseCoolShadowColorOrTex("Use Cool Shadow", float) = 0.0
         [KeywordEnum(None,Flicker,Emission,AlphaTest)]_MainTexAlphaUse("Diffuse Texture Alpha Use", float) = 0.0
         _MainTexCutOff("Cut Off", Range(0.0, 1.0)) = 0.5
-        [Toggle(_EMISSION_ON)] _UseEmission("Use emission (Default NO)",float) = 0
-        _EmissionScaler("Emission Scaler", Range(1.0, 10.0)) = 5.0
         _FrontFaceTintColor("Front face tint color (Default white)",Color) = (1,1,1)
         _BackFaceTintColor("Back face tint color (Default white)",Color) = (1,1,1)
         [Enum(UnityEngine.Rendering.CullMode)]_BasePassCullMode("Base Pass Cull Mode", Float) = 0.0
@@ -51,6 +49,10 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         [HDR] _RimLightTintColor("Rim light tint colar (Default white)",Color) = (1,1,1)
         _RimLightBrightness("Rim light brightness (Default 1)",Range(0, 10)) = 1
         _RimLightMixAlbedo("Rim light mix albedo (Default 0.9)",Range(0, 1)) = 0.9
+
+        [Header(Emission)]
+        [Toggle(_EMISSION_ON)] _UseEmission("Use emission (Default NO)",float) = 0
+        _EmissionScaler("Emission Scaler", Range(1.0, 10.0)) = 5.0
 
         [Header(Outline)]
         [Toggle(_OUTLINE_ON)] _UseOutline("Use outline (Default YES)", float ) = 1

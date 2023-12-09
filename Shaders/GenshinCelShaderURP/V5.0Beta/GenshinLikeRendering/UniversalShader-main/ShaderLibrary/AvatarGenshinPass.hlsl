@@ -38,9 +38,11 @@ Varyings GenshinStyleVertex(Attributes input)
     return output;
 }
 
-half4 GenshinStyleFragment(Varyings input) : SV_Target
+half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : SV_Target
 {
     half4 mainTexCol = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv) * _MainTexColoring;
+    //给背面填充颜色，对眼睛，丝袜很有用
+    mainTexCol.rgb *= lerp(_BackFaceTintColor, _FrontFaceTintColor, isFrontFace);
     
     Light mainLight = GetMainLight();
     //获取主光源颜色
@@ -66,7 +68,7 @@ half4 GenshinStyleFragment(Varyings input) : SV_Target
     half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv);
 
     float halfLambert = 0.5 * dot(mainLightDirection, input.normalWS) + 0.5;
-    float AOMask = step(0.02, ilmTexCol.g);
+    float AOMask = lerp(1, step(0.02, ilmTexCol.g), _RampAOLerp);
     float brightAreaMask = AOMask * halfLambert;
 
     half3 diffuseColor = 0;

@@ -33,6 +33,8 @@ float _MainTexCutOff;
 float _EmissionScaler;
 float _FinalColorScaler;
 
+float3 _FrontFaceTintColor;
+float3 _BackFaceTintColor;
 float _Alpha;
 float _AlphaClip;
 
@@ -41,6 +43,7 @@ float _LightArea;
 half4 _LightAreaColorTint;
 float _RampCount;
 float _ShadowRampWidth;
+float _RampAOLerp;
 float _HairShadowDistance;
 float _FaceShadowOffset;
 half4 _MainTexColoring;

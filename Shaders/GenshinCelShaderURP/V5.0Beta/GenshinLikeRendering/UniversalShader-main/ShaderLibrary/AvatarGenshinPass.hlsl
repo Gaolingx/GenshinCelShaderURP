@@ -48,7 +48,8 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     Light mainLight = GetMainLight();
     //获取主光源颜色
     float4 LightColor = float4(mainLight.color.rgb, 1);
-    float3 mainLightDirection = normalize(mainLight.direction);
+    //获取主光源方向
+    float3 lightDirectionWS = normalize(mainLight.direction);
     //获取世界空间法线，如果要采样NormalMap，要使用TBN矩阵变换
     float3 normalWS = normalize(input.normalWS);
 
@@ -68,7 +69,8 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
 
     half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv);
 
-    float halfLambert = 0.5 * dot(mainLightDirection, input.normalWS) + 0.5;
+    float NoL = dot(normalWS, lightDirectionWS);
+    float halfLambert = 0.5 * NoL + 0.5;
     float AOMask = lerp(1, step(0.02, ilmTexCol.g), _RampAOLerp);
     float brightAreaMask = AOMask * halfLambert;
 
@@ -101,7 +103,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     #if _SPECULAR_ON
         //Specular
         float3 viewDirectionWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS.xyz);
-        float3 halfDirectionWS = normalize(viewDirectionWS + mainLightDirection);
+        float3 halfDirectionWS = normalize(viewDirectionWS + lightDirectionWS);
         float hdotl = max(dot(halfDirectionWS, input.normalWS.xyz), 0.0);
         //非金属高光
         float nonMetalSpecular = step(1.0 - 0.5 * _NonMetalSpecArea, pow(hdotl, _Shininess)) * ilmTexCol.r;
@@ -170,8 +172,8 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     // unity_ObjectToWorld = ( right, back, left)
     float3 rightDirectionWS = unity_ObjectToWorld._11_21_31;
     float3 backDirectionWS = unity_ObjectToWorld._13_23_33;
-    float rdotl = dot(normalize(mainLightDirection.xz), normalize(rightDirectionWS.xz));
-    float fdotl = dot(normalize(mainLightDirection.xz), normalize(backDirectionWS.xz));
+    float rdotl = dot(normalize(lightDirectionWS.xz), normalize(rightDirectionWS.xz));
+    float fdotl = dot(normalize(lightDirectionWS.xz), normalize(backDirectionWS.xz));
 
     //SDF面部阴影
     //将ilmTexture看作光源的数值，那么原UV采样得到的图片是光从角色左侧打过来的效果，且越往中间，所需要的亮度越低。lightThreshold作为点亮区域所需的光源强度

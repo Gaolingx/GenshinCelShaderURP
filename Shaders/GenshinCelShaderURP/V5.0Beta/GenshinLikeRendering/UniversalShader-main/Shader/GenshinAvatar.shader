@@ -5,11 +5,11 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         [Header(General)]
         [KeywordEnum(Body, Face)]_RenderType("Render Type", float) = 0.0
         [KeywordEnum(R, A)]_UseFaceLightMapChannel("Use Face Lightmap Channel", float) = 1.0
-        [Toggle]_UseCoolShadowColorOrTex("Use Cool Shadow", float) = 0.0
-        [KeywordEnum(None,Flicker,Emission,AlphaTest)]_MainTexAlphaUse("Diffuse Texture Alpha Use", float) = 0.0
-        _MainTexCutOff("Cut Off", Range(0.0, 1.0)) = 0.5
+        [Toggle]_UseCoolShadowColorOrTex("Use Cool Ramp Shadow", float) = 0.0
         _FrontFaceTintColor("Front face tint color (Default white)",Color) = (1,1,1)
         _BackFaceTintColor("Back face tint color (Default white)",Color) = (1,1,1)
+        [KeywordEnum(None,Flicker,Emission,AlphaTest)]_MainTexAlphaUse("Diffuse Texture Alpha Use", float) = 0.0
+        _MainTexCutOff("Cut Off", Range(0.0, 1.0)) = 0.5
         [Enum(UnityEngine.Rendering.CullMode)]_BasePassCullMode("Base Pass Cull Mode", Float) = 0.0
         _Alpha("Alpha (Default 1)", Range(0,1)) = 1
         _AlphaClip("Alpha clip (Default 0.333)", Range(0,1)) = 0.333
@@ -26,6 +26,8 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _RampAOLerp ("Shadow AO Lerp", Range(0.0, 1.0)) = 0.5
         _HairShadowDistance("Hair Shadow Distance", Range(0.0, 1.0)) = 0.5
         _FaceShadowOffset ("Face Shadow Offset", range(-1.0, 1.0)) = 0.0
+
+        [Header(ColorGrading)]
         _MainTexColoring("Main Texture Coloring", Color) = (1.0, 1.0, 1.0, 1.0)
         _DarkShadowColor("Dark Shadow Color Tint", Color) = (0.75, 0.75, 0.75, 1.0)
         _CoolDarkShadowColor("Cool Dark Shadow Color Tint", Color) = (0.5, 0.5, 0.65, 1.0)

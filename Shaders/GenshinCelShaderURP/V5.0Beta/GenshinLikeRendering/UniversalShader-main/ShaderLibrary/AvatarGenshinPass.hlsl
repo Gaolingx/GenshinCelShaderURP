@@ -172,8 +172,11 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     // unity_ObjectToWorld = ( right, back, left)
     float3 rightDirectionWS = unity_ObjectToWorld._11_21_31;
     float3 backDirectionWS = unity_ObjectToWorld._13_23_33;
-    float rdotl = dot(normalize(lightDirectionWS.xz), normalize(rightDirectionWS.xz));
-    float fdotl = dot(normalize(lightDirectionWS.xz), normalize(backDirectionWS.xz));
+    float3 R = SafeNormalize(float3(rightDirectionWS.x, 0.0, rightDirectionWS.z));
+    float3 F = SafeNormalize(float3(backDirectionWS.x, 0.0, backDirectionWS.z));
+    float3 L = SafeNormalize(float3(lightDirectionWS.x, 0.0, lightDirectionWS.z));
+    float rdotl = dot(L, R);
+    float fdotl = dot(L, F);
 
     //SDF面部阴影
     //将ilmTexture看作光源的数值，那么原UV采样得到的图片是光从角色左侧打过来的效果，且越往中间，所需要的亮度越低。lightThreshold作为点亮区域所需的光源强度

@@ -88,7 +88,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
     SubShader
     {
         HLSLINCLUDE
-        #include "../ShaderLibrary/AvatarGenshinInput.hlsl"
+        #include "../../ShaderLibrary/AvatarGenshinInput.hlsl"
         ENDHLSL
         Tags
         {
@@ -128,7 +128,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             #pragma shader_feature_local _SPECULAR_ON
             #pragma shader_feature_local _RIM_LIGHTING_ON
             
-            #include "../ShaderLibrary/AvatarGenshinPass.hlsl"
+            #include "../../ShaderLibrary/AvatarGenshinPass.hlsl"
             ENDHLSL
         }
 
@@ -151,7 +151,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             #if _OUTLINE_ON
             
                 // all shader logic written inside this .hlsl, remember to write all #define BEFORE writing #include
-                #include "../ShaderLibrary/AvatarGenshinOutlinePass.hlsl"
+                #include "../../ShaderLibrary/AvatarGenshinOutlinePass.hlsl"
             #else
                 struct Attributes {};
                 struct Varyings

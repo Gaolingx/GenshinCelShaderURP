@@ -88,7 +88,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     half3 rampTexCol = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, rampUV).rgb;    
     
     //以上获取的Shadow Color颜色对固有阴影的颜色处理不够深，所以通过ShadowColor进一步调色
-    half3 darkShadowColor = lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex) * rampTexCol;
+    half3 darkShadowColor = rampTexCol * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);
     #if !defined(_USERAMPLIGHTAREACOLOR_ON)
         //区分使用Ramp的最右侧作为亮部颜色和使用自定义亮部颜色两种情况，使用自定义时可以获取额外的亮部二分ramp条
         //进一步处理brightAreaMask，来获取亮部区域（非Ramp区）的遮罩，参数_ShadowRampWidth影响最接近亮部的ramp条的宽度

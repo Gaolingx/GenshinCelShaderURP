@@ -32,6 +32,10 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _DarkShadowColor("Dark Shadow Color Tint", Color) = (0.75, 0.75, 0.75, 1.0)
         _CoolDarkShadowColor("Cool Dark Shadow Color Tint", Color) = (0.5, 0.5, 0.65, 1.0)
         _NeckColor("Neck Color Tint", Color) = (0.75, 0.75, 0.75, 1.0)
+
+        [Header(Normal)]
+        [Toggle(_NORMAL_MAP_ON)] _UseNormalMap("Use Normal Map", Float) = 0
+        [Normal] _NormalMap("Normal Map", 2D) = "bump" {}
         
         [Header(Specular)]
         [Toggle(_SPECULAR_ON)] _EnableSpecular ("Enable Specular (Default YES)", float) = 1
@@ -125,6 +129,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             #pragma shader_feature_fragment _ _USEFACELIGHTMAPCHANNEL_R _USEFACELIGHTMAPCHANNEL_A
             #pragma shader_feature_local_fragment _USERAMPLIGHTAREACOLOR_ON
             #pragma shader_feature_local _EMISSION_ON
+            #pragma shader_feature_local_fragment _NORMAL_MAP_ON
             #pragma shader_feature_local _SPECULAR_ON
             #pragma shader_feature_local _RIM_LIGHTING_ON
             

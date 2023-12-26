@@ -15,6 +15,8 @@ TEXTURE2D(_MainTex);
 SAMPLER(sampler_MainTex);
 TEXTURE2D(_ilmTex);
 SAMPLER(sampler_ilmTex);
+TEXTURE2D(_NormalMap);
+SAMPLER(sampler_NormalMap);
 TEXTURE2D(_RampTex);
 SAMPLER(sampler_RampTex);
 TEXTURE2D(_MetalTex);

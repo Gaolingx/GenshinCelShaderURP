@@ -20,21 +20,28 @@ struct Varyings
     float3 normalWS : VAR_NORMAL_WS;
     float2 uv : VAR_BASE_UV;
     float4 positionWSAndFogFactor : TEXCOORD1;
+    float3 bitangentWS : TEXCOORD2;
+    float3 tangentWS : TEXCOORD3;
     float4 vertexColor : COLOR;
 };
 
 Varyings GenshinStyleVertex(Attributes input)
 {
     Varyings output = (Varyings)0;
+
     VertexPositionInputs vertexPositionInputs = GetVertexPositionInputs(input.positionOS.xyz);
     VertexNormalInputs vertexNormalInputs = GetVertexNormalInputs(input.normalOS.xyz, input.tangentOS);
+    
     // 世界空间
     output.positionWSAndFogFactor = float4(vertexPositionInputs.positionWS, ComputeFogFactor(vertexPositionInputs.positionCS.z));
     output.positionCS = vertexPositionInputs.positionCS;
     output.positionWS = vertexPositionInputs.positionWS;
+    output.tangentWS = vertexNormalInputs.tangentWS;
+    output.bitangentWS = vertexNormalInputs.bitangentWS;
     output.normalWS = vertexNormalInputs.normalWS;
     output.uv = input.uv;
     output.vertexColor = input.vertexColor;
+
     return output;
 }
 
@@ -50,8 +57,17 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     float4 LightColor = float4(mainLight.color.rgb, 1);
     //获取主光源方向
     float3 lightDirectionWS = normalize(mainLight.direction);
+
     //获取世界空间法线，如果要采样NormalMap，要使用TBN矩阵变换
-    float3 normalWS = normalize(input.normalWS);
+    #if _NORMAL_MAP_ON
+        float3x3 tangentToWorld = half3x3(input.tangentWS, input.bitangentWS, input.normalWS);
+        float4 normalMap = SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, input.uv);
+        float3 normalTS = UnpackNormal(normalMap);
+        float3 normalWS = TransformTangentToWorld(normalTS, tangentToWorld, true);
+        input.normalWS = normalWS;
+    #else
+        float3 normalWS = normalize(input.normalWS);
+    #endif
 
 //区分面部和身体的渲染    
 #if defined(_RENDERTYPE_BODY)

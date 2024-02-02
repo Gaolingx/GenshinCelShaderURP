@@ -65,7 +65,10 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _OutlineWidthAdjustScale("Outline Width Adjust Scale", Range(0.0, 1.0)) = 1.0
         [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color (Default NO)", float ) = 0
         [ToggleUI]_IsFace("Is Face? (please turn on if this is a face material)", Float) = 0
-        _OutlineZOffset("_OutlineZOffset (View Space)", Range(0, 1)) = 0.0001
+        _OutlineZOffset("_OutlineZOffset (View Space)", Range(0,1)) = 0.0001
+        [NoScaleOffset]_OutlineZOffsetMaskTex("_OutlineZOffsetMask (black is apply ZOffset)", 2D) = "black" {}
+        _OutlineZOffsetMaskRemapStart("_OutlineZOffsetMaskRemapStart", Range(0,1)) = 0
+        _OutlineZOffsetMaskRemapEnd("_OutlineZOffsetMaskRemapEnd", Range(0,1)) = 1
         _CustomOutlineCol("Custom Outline Color", Color) = (1.0, 1.0, 1.0, 1.0)
         _OutlineColor1("Outline Color 1", Color) = (0.0, 0.0, 0.0, 1.0)
         _OutlineColor2("Outline Color 2", Color) = (0.1, 0.1, 0.1, 1.0)

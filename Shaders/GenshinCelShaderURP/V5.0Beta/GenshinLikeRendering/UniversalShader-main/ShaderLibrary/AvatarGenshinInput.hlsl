@@ -6,6 +6,13 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
+///////////////////////////////////////////////////////////////////////////////////////
+// CBUFFER and Uniforms 
+// (you should put all uniforms of all passes inside this single UnityPerMaterial CBUFFER! else SRP batching is not possible!)
+///////////////////////////////////////////////////////////////////////////////////////
+
+// all sampler2D don't need to put inside CBUFFER 
+sampler2D _OutlineZOffsetMaskTex;
 
 
 TEXTURE2D(_HairShadowMask);
@@ -27,6 +34,8 @@ TEXTURE2D(_SmoothNormalTex);
 SAMPLER(sampler_SmoothNormalTex);
 #endif
 
+// put all your uniforms(usually things inside .shader file's properties{}) inside this CBUFFER, in order to make SRP batcher compatible
+// see -> https://blogs.unity3d.com/2019/02/28/srp-batcher-speed-up-your-rendering/
 CBUFFER_START(UnityPerMaterial)
 
 //General Controller
@@ -78,6 +87,8 @@ float _RimLightMixAlbedo;
 #if _OUTLINE_ON
 float   _IsFace;
 float   _OutlineZOffset;
+float   _OutlineZOffsetMaskRemapStart;
+float   _OutlineZOffsetMaskRemapEnd;
 half4 _CustomOutlineCol;
 half4 _OutlineColor1;
 half4 _OutlineColor2;

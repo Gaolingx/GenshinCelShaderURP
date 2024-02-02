@@ -4,6 +4,7 @@
 #include "../ShaderLibrary/AvatarGenshinInput.hlsl"
 #include "../ShaderLibrary/AvatarBackFacingOutline.hlsl"
 #include "../ShaderLibrary/NiloZOffset.hlsl"
+#include "../ShaderLibrary/NiloInvLerpRemap.hlsl"
 
 struct Attributes
 {
@@ -56,8 +57,19 @@ Varyings BackFaceOutlineVertex(Attributes input)
     output.positionCS = vertexPositionInputs.positionCS;
     output.positionCS.xy += outlinePositionOffsetCS * input.vertexColor.a;
     
+    // [Read ZOffset mask texture]
+    // we can't use tex2D() in vertex shader because ddx & ddy is unknown before rasterization, 
+    // so use tex2Dlod() with an explict mip level 0, put explict mip level 0 inside the 4th component of param uv)
+    float outlineZOffsetMaskTexExplictMipLevel = 0;
+    float outlineZOffsetMask = tex2Dlod(_OutlineZOffsetMaskTex, float4(input.uv,0,outlineZOffsetMaskTexExplictMipLevel)).r; //we assume it is a Black/White texture
+
+    // [Remap ZOffset texture value]
+    // flip texture read value so default black area = apply ZOffset, because usually outline mask texture are using this format(black = hide outline)
+    outlineZOffsetMask = 1-outlineZOffsetMask;
+    outlineZOffsetMask = invLerpClamp(_OutlineZOffsetMaskRemapStart,_OutlineZOffsetMaskRemapEnd,outlineZOffsetMask);// allow user to flip value or remap
+
     // [Apply ZOffset, Use remapped value as ZOffset mask]
-    output.positionCS = NiloGetNewClipPosWithZOffset(output.positionCS, _OutlineZOffset + 0.03 * _IsFace);
+    output.positionCS = NiloGetNewClipPosWithZOffset(output.positionCS, _OutlineZOffset * outlineZOffsetMask + 0.03 * _IsFace);
     
     output.uv = input.uv;
 

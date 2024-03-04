@@ -64,27 +64,22 @@ half4 _NeckColor;
 float3 _DarkShadowColorTint;
 
 //Specular
-#if _SPECULAR_ON
 float _MTMapBrightness;
 float _MTShininess;
 float _MTSpecularScale;
 float _Shininess;
 float _NonMetalSpecArea;
 float _SpecMulti;
-#endif
 
 //RimLight
-#if _RIM_LIGHTING_ON
 float _RimLightWidth;
 float _RimLightThreshold;
 float _RimLightFadeout;
 float3 _RimLightTintColor;
 float _RimLightBrightness;
-#endif
 float _RimLightMixAlbedo;
 
 //Outline
-#if _OUTLINE_ON
 float   _IsFace;
 float   _OutlineZOffset;
 float   _OutlineZOffsetMaskRemapStart;
@@ -96,7 +91,6 @@ half4 _OutlineColor3;
 half4 _OutlineColor4;
 half4 _OutlineColor5;
 float _OutlineWidthAdjustScale;
-#endif
 
 float _DebugValue01;
 CBUFFER_END

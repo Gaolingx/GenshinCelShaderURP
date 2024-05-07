@@ -4,7 +4,6 @@
 #include "../ShaderLibrary/AvatarGenshinInput.hlsl"
 #include "../ShaderLibrary/AvatarBackFacingOutline.hlsl"
 #include "../ShaderLibrary/NiloZOffset.hlsl"
-#include "../ShaderLibrary/NiloInvLerpRemap.hlsl"
 
 struct Attributes
 {
@@ -21,6 +20,11 @@ struct Varyings
     float2 uv : TEXCOORD0;
     float fogFactor : TEXCOORD1;
 };
+
+void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold) 
+{
+    clip(alpha - alphaTestThreshold);
+}
 
 Varyings BackFaceOutlineVertex(Attributes input)
 {
@@ -56,20 +60,9 @@ Varyings BackFaceOutlineVertex(Attributes input)
     float2 outlinePositionOffsetCS = GetOutlinedOffsetHClip(outlineData);
     output.positionCS = vertexPositionInputs.positionCS;
     output.positionCS.xy += outlinePositionOffsetCS * input.vertexColor.a;
-    
-    // [Read ZOffset mask texture]
-    // we can't use tex2D() in vertex shader because ddx & ddy is unknown before rasterization, 
-    // so use tex2Dlod() with an explict mip level 0, put explict mip level 0 inside the 4th component of param uv)
-    float outlineZOffsetMaskTexExplictMipLevel = 0;
-    float outlineZOffsetMask = tex2Dlod(_OutlineZOffsetMaskTex, float4(input.uv,0,outlineZOffsetMaskTexExplictMipLevel)).r; //we assume it is a Black/White texture
 
-    // [Remap ZOffset texture value]
-    // flip texture read value so default black area = apply ZOffset, because usually outline mask texture are using this format(black = hide outline)
-    outlineZOffsetMask = 1-outlineZOffsetMask;
-    outlineZOffsetMask = invLerpClamp(_OutlineZOffsetMaskRemapStart,_OutlineZOffsetMaskRemapEnd,outlineZOffsetMask);// allow user to flip value or remap
-
-    // [Apply ZOffset, Use remapped value as ZOffset mask]
-    output.positionCS = NiloGetNewClipPosWithZOffset(output.positionCS, _OutlineZOffset * outlineZOffsetMask + 0.03 * _IsFace);
+    // Apply ZOffset
+    output.positionCS = NiloGetNewClipPosWithZOffset(output.positionCS, _OutlineZOffset + 0.03 * _IsFace);
     
     output.uv = input.uv;
 
@@ -89,14 +82,18 @@ half4 BackFaceOutlineFragment(Varyings input) : SV_Target
     half areaMask5 = step(0.95, outlineColorMask);
 
     #if _OUTLINE_CUSTOM_COLOR_ON
-        half4 finalOutlineColor = _CustomOutlineCol;
+        half3 finalOutlineColor = _CustomOutlineCol.rgb;
     #else
-        half4 finalOutlineColor = (1.0 - (areaMask1 + areaMask2 + areaMask3 + areaMask4 + areaMask5)) * _OutlineColor1 + areaMask2 * _OutlineColor2 + areaMask3 * _OutlineColor3 + areaMask4 * _OutlineColor4 + areaMask5 * _OutlineColor5;
+        half3 finalOutlineColor = (1.0 - (areaMask1 + areaMask2 + areaMask3 + areaMask4 + areaMask5)) * _OutlineColor1.rgb + areaMask2 * _OutlineColor2.rgb + areaMask3 * _OutlineColor3.rgb + areaMask4 * _OutlineColor4.rgb + areaMask5 * _OutlineColor5.rgb;
     #endif
     
-    finalOutlineColor.rgb = MixFog(finalOutlineColor.rgb, input.fogFactor);
+    float alpha = _Alpha;
 
-    return finalOutlineColor;
+    float4 FinalColor = float4(finalOutlineColor, alpha);
+    DoClipTestToTargetAlphaValue(FinalColor.a, _AlphaClip);
+    FinalColor.rgb = MixFog(FinalColor.rgb, input.fogFactor);
+
+    return float4(FinalColor.rgb, 1);
 }
 
 #endif

@@ -12,7 +12,6 @@
 ///////////////////////////////////////////////////////////////////////////////////////
 
 // all sampler2D don't need to put inside CBUFFER 
-sampler2D _OutlineZOffsetMaskTex;
 
 
 TEXTURE2D(_HairShadowMask);
@@ -22,6 +21,8 @@ TEXTURE2D(_MainTex);
 SAMPLER(sampler_MainTex);
 TEXTURE2D(_ilmTex);
 SAMPLER(sampler_ilmTex);
+TEXTURE2D(_FaceMap);
+SAMPLER(sampler_FaceMap);
 TEXTURE2D(_NormalMap);
 SAMPLER(sampler_NormalMap);
 TEXTURE2D(_RampTex);
@@ -49,19 +50,25 @@ float3 _BackFaceTintColor;
 float _Alpha;
 float _AlphaClip;
 
+//Ramp
+float _RampIndex0;
+float _RampIndex1;
+float _RampIndex2;
+float _RampIndex3;
+float _RampIndex4;
+float _BrightFac;
+float _GreyFac;
+float _DarkFac;
+
 //Shadow
-float _LightArea;
 half4 _LightAreaColorTint;
-float _RampCount;
-float _ShadowRampWidth;
 float _RampAOLerp;
-float _HairShadowDistance;
 float _FaceShadowOffset;
-half4 _MainTexColoring;
 half4 _DarkShadowColor;
 half4 _CoolDarkShadowColor;
-half4 _NeckColor;
+float _BrightAreaShadowFac;
 float3 _DarkShadowColorTint;
+float _FaceShadowTransitionSoftness;
 
 //Specular
 float _MTMapBrightness;
@@ -72,12 +79,13 @@ float _NonMetalSpecArea;
 float _SpecMulti;
 
 //RimLight
-float _RimLightWidth;
-float _RimLightThreshold;
-float _RimLightFadeout;
-float3 _RimLightTintColor;
-float _RimLightBrightness;
-float _RimLightMixAlbedo;
+float _ModelScale;
+float _RimIntensity;
+float _RimIntensityBackFace;
+float4 _RimColor;
+float _RimWidth;
+float _RimDark;
+float _RimEdgeSoftness;
 
 //Outline
 float   _IsFace;

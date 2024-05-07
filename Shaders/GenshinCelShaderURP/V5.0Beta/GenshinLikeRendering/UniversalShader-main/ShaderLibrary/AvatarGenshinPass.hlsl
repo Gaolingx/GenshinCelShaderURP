@@ -2,7 +2,7 @@
 #define CUSTOM_AVATAR_GENSHIN_PASS_INCLUDED
 
 #include "../ShaderLibrary/AvatarGenshinInput.hlsl"
-#include "../ShaderLibrary/AvatarLighting.hlsl"
+#include "../ShaderLibrary/AvatarRimLightHelper.hlsl"
 
 struct Attributes
 {
@@ -24,6 +24,43 @@ struct Varyings
     float3 tangentWS : TEXCOORD3;
     float4 vertexColor : COLOR;
 };
+
+
+float3 GetShadowRampColor(float4 lightmap, float NdotL, float atten)
+{
+    lightmap.g = lerp(1, smoothstep(0.2, 0.3, lightmap.g), _RampAOLerp);  //lightmap.g
+    float halfLambert = smoothstep(0.0, _GreyFac, NdotL + _DarkFac) * lightmap.g * atten;  //半Lambert
+    float brightMask = step(_BrightFac, halfLambert);  //亮面
+    //判断白天与夜晚
+    float rampSampling = 0.0;
+    if(_UseCoolShadowColorOrTex == 1){rampSampling = 0.5;}
+    //计算ramp采样条数
+    float ramp0 = _RampIndex0 * -0.1 + 1.05 - rampSampling;  //0.95
+    float ramp1 = _RampIndex1 * -0.1 + 1.05 - rampSampling;  //0.65
+    float ramp2 = _RampIndex2 * -0.1 + 1.05 - rampSampling;  //0.75
+    float ramp3 = _RampIndex3 * -0.1 + 1.05 - rampSampling;  //0.55
+    float ramp4 = _RampIndex4 * -0.1 + 1.05 - rampSampling;  //0.85
+    //分离lightmap.a各材质
+    float lightmapA2 = step(0.25, lightmap.a);  //0.3
+    float lightmapA3 = step(0.45, lightmap.a);  //0.5
+    float lightmapA4 = step(0.65, lightmap.a);  //0.7
+    float lightmapA5 = step(0.95, lightmap.a);  //1.0
+    //重组lightmap.a
+    float rampV = ramp0;  //0.0
+    rampV = lerp(rampV, ramp1, lightmapA2);  //0.3
+    rampV = lerp(rampV, ramp2, lightmapA3);  //0.5
+    rampV = lerp(rampV, ramp3, lightmapA4);  //0.7
+    rampV = lerp(rampV, ramp4, lightmapA5);  //1.0
+    //采样ramp
+    float3 rampCol = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, float2(halfLambert, rampV)).rgb;
+    float3 shadowRamp = lerp(rampCol, halfLambert, brightMask);  //遮罩亮面
+    return shadowRamp;
+}
+
+void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold) 
+{
+    clip(alpha - alphaTestThreshold);
+}
 
 Varyings GenshinStyleVertex(Attributes input)
 {
@@ -48,7 +85,7 @@ Varyings GenshinStyleVertex(Attributes input)
 half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : SV_Target
 {
     half4 BaseMap = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
-    half4 mainTexCol =  BaseMap * _MainTexColoring;
+    half4 mainTexCol =  BaseMap;
     //给背面填充颜色，对眼睛，丝袜很有用
     mainTexCol.rgb *= lerp(_BackFaceTintColor, _FrontFaceTintColor, isFrontFace);
     
@@ -57,6 +94,8 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     float4 LightColor = float4(mainLight.color.rgb, 1);
     //获取主光源方向
     float3 lightDirectionWS = normalize(mainLight.direction);
+    //视线方向
+    float3 viewDirectionWS = normalize(GetWorldSpaceViewDir(input.positionWS));
 
     //获取世界空间法线，如果要采样NormalMap，要使用TBN矩阵变换
     #if _NORMAL_MAP_ON
@@ -68,6 +107,9 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     #else
         float3 normalWS = normalize(input.normalWS);
     #endif
+
+    float NoV = dot(normalize(normalWS), normalize(GetWorldSpaceViewDir(input.positionWS)));
+    float NoL = dot(normalize(normalWS), normalize(mainLight.direction));
 
 //区分面部和身体的渲染    
 #if defined(_RENDERTYPE_BODY)
@@ -85,40 +127,21 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
 
     half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv);
 
-    float NoL = dot(normalWS, lightDirectionWS);
-    float halfLambert = 0.5 * NoL + 0.5;
-    float AOMask = lerp(1, step(0.02, ilmTexCol.g), _RampAOLerp);
-    float brightAreaMask = AOMask * halfLambert;
+    float halfLambert = 0.5 * NoL + input.vertexColor.g;
 
     half3 diffuseColor = 0;
     //Diffuse
-    float2 rampUV;
-    //对原神Ramp X轴处理：
-    //以LightArea作为阈值，通过AO和halfLambert来控制Ramp明亮交界的位置
-    rampUV.x = min(0.99, smoothstep(0.001, 1.0 - _LightArea, brightAreaMask));
-    //对原神Ramp Y轴处理的全新理解：
-    //1.首先，原神的Ramp采样是基于左上角为(0，0)的，原因猜测是网上拿到的Ramp资源是基于PC截帧获取的，DX平台默认的贴图是以左上角为UV空间的原点；
-    //而Unity中默认的UV空间原点是左下角，所以需要在Y轴上做翻转
-    //2.基于ilm贴图的A通道和Ramp图的适配性，以及结合游戏内的表现，我猜测存在一个_RampCount来对ilm贴图A通道读取Ramp行序号的信息进行缩放
-    rampUV.y = 1.0 - saturate(ilmTexCol.a) / _RampCount * 0.5 + _UseCoolShadowColorOrTex * 0.5 - 0.001;
-    half3 rampTexCol = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, rampUV).rgb;    
-    
+    half3 rampTexCol = GetShadowRampColor(ilmTexCol, halfLambert, mainLight.shadowAttenuation);
+    half3 brightAreaColor = rampTexCol * _LightAreaColorTint.rgb;
     //以上获取的Shadow Color颜色对固有阴影的颜色处理不够深，所以通过ShadowColor进一步调色
     half3 darkShadowColor = rampTexCol * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);
-    #if !defined(_USERAMPLIGHTAREACOLOR_ON)
-        //区分使用Ramp的最右侧作为亮部颜色和使用自定义亮部颜色两种情况，使用自定义时可以获取额外的亮部二分ramp条
-        //进一步处理brightAreaMask，来获取亮部区域（非Ramp区）的遮罩，参数_ShadowRampWidth影响最接近亮部的ramp条的宽度
-        brightAreaMask = step(1.0 - _LightArea, brightAreaMask + (1.0 - _ShadowRampWidth) * 0.1);
-        rampTexCol = lerp(rampTexCol, _LightAreaColorTint, brightAreaMask);
-    #endif
-    half3 ShadowColorTint = lerp(darkShadowColor.rgb, rampTexCol, AOMask);
-    ShadowColorTint = lerp(_NeckColor.rgb, ShadowColorTint, input.vertexColor.b);
+
+    half3 ShadowColorTint = lerp(darkShadowColor.rgb, brightAreaColor, _BrightAreaShadowFac);
     diffuseColor = ShadowColorTint * mainTexCol.rgb;
 
     half3 FinalSpecCol = 0;
     #if _SPECULAR_ON
         //Specular
-        float3 viewDirectionWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS.xyz);
         float3 halfDirectionWS = normalize(viewDirectionWS + lightDirectionWS);
         float hdotl = max(dot(halfDirectionWS, input.normalWS.xyz), 0.0);
         //非金属高光
@@ -138,25 +161,22 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     
     //边缘光部分
     float3 rimLightColor;
+
     #if _RIM_LIGHTING_ON
-        //获取当前片元的深度
-        float linearEyeDepth = LinearEyeDepth(input.positionCS.z, _ZBufferParams);
-        //根据视线空间的法线采样左边或者右边的深度图
-        float3 normalVS = mul((float3x3)UNITY_MATRIX_V, normalWS);
-        //根据视线空间的法线采样左边或者右边的深度图，根据深度缩放，实现近大远小的效果
-        float2 uvOffset = float2(sign(normalVS.x), 0) * _RimLightWidth / (1 + linearEyeDepth) / 100;
-        int2 loadTexPos = input.positionCS.xy + uvOffset * _ScaledScreenParams.xy;
-        //限制左右，不采样到边界
-        loadTexPos = min(max(loadTexPos, 0), _ScaledScreenParams.xy - 1);
-        //偏移后的片元深度
-        float offsetSceneDepth = LoadSceneDepth(loadTexPos);
-        //转换为LinearEyeDepth
-        float offsetLinearEyeDepth = LinearEyeDepth(offsetSceneDepth, _ZBufferParams);
-        //深度差超过阈值，表示是边界
-        float rimLight = saturate(offsetLinearEyeDepth - (linearEyeDepth + _RimLightThreshold)) / _RimLightFadeout;
-        rimLightColor = rimLight * LightColor.rgb;
-        rimLightColor *= _RimLightTintColor;
-        rimLightColor *= _RimLightBrightness;
+        RimLightMaskData rimLightMaskData;
+        rimLightMaskData.color = _RimColor.rgb;
+        rimLightMaskData.width = _RimWidth;
+        rimLightMaskData.edgeSoftness = _RimEdgeSoftness;
+        rimLightMaskData.modelScale = _ModelScale;
+        rimLightMaskData.ditherAlpha = 1;
+
+        RimLightData rimLightData;
+        rimLightData.darkenValue = _RimDark;
+        rimLightData.intensityFrontFace = _RimIntensity;
+        rimLightData.intensityBackFace = _RimIntensityBackFace;
+
+        float3 rimLightMask = GetRimLightMask(rimLightMaskData, normalWS, viewDirectionWS, NoV, input.positionCS, float4(1, 1, 1, 1));
+        rimLightColor = GetRimLight(rimLightData, rimLightMask, NoL, mainLight, isFrontFace);
     #else
         rimLightColor = 0;
     #endif
@@ -165,7 +185,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     float3 FinalDiffuse = 0;
     FinalDiffuse += diffuseColor;
     FinalDiffuse += FinalSpecCol;
-    FinalDiffuse += rimLightColor * lerp(1, FinalDiffuse, _RimLightMixAlbedo);
+    FinalDiffuse += rimLightColor;
 
     //判断emission是否开启
     #if _EMISSION_ON != 1
@@ -176,80 +196,79 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     float alpha = _Alpha;
 
     float4 FinalColor = float4(FinalDiffuse, alpha);
-    clip(FinalColor.a - _AlphaClip);
+    DoClipTestToTargetAlphaValue(FinalColor.a, _AlphaClip);
     FinalColor.rgb = MixFog(FinalColor.rgb, input.positionWSAndFogFactor.w);
 
     return FinalColor;
     
 #else
 
-    //获取向量信息
-    //unity_objectToWorld可以获取世界空间的方向信息，构成如下：
-    // unity_ObjectToWorld = ( right, back, left)
-    float3 rightDirectionWS = unity_ObjectToWorld._11_21_31;
-    float3 backDirectionWS = unity_ObjectToWorld._13_23_33;
-    float3 R = SafeNormalize(float3(rightDirectionWS.x, 0.0, rightDirectionWS.z));
-    float3 F = SafeNormalize(float3(backDirectionWS.x, 0.0, backDirectionWS.z));
-    float3 L = SafeNormalize(float3(lightDirectionWS.x, 0.0, lightDirectionWS.z));
-    float rdotl = dot(L, R);
-    float fdotl = dot(L, F);
-
-    //SDF面部阴影
-    //将ilmTexture看作光源的数值，那么原UV采样得到的图片是光从角色左侧打过来的效果，且越往中间，所需要的亮度越低。lightThreshold作为点亮区域所需的光源强度
-    float2 ilmTextureUV = rdotl < 0.0 ? input.uv : float2(1.0 - input.uv.x, input.uv.y);
-    float lightThreshold = 0.5 * (1.0 - fdotl);
-    lightThreshold += _FaceShadowOffset;
-    
-    half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, ilmTextureUV);
-    half4 metalTexCol = SAMPLE_TEXTURE2D(_MetalTex, sampler_MetalTex, input.uv);
-
+    // 游戏模型的头骨骼是旋转过的
+    float3 headDirWSUp = normalize(-UNITY_MATRIX_M._m00_m10_m20);
+    float3 headDirWSRight = normalize(-UNITY_MATRIX_M._m02_m12_m22);
+    float3 headDirWSForward = normalize(UNITY_MATRIX_M._m01_m11_m21);
+    float3 lightDirProj = normalize(lightDirectionWS - dot(lightDirectionWS, headDirWSUp) * headDirWSUp); // 做一次投影
+    //光照在左脸的时候。左脸的uv采样左脸，右脸的uv采样右脸，而光照在右脸的时候，左脸的uv采样右脸，右脸的uv采样左脸，因为SDF贴图明暗变化在右脸
+    bool isRight = dot(lightDirProj, headDirWSRight) > 0;
+    //相当于float sdfUVx=isRight?1-input.uv.x:input.uv.x;
+    //即打在右脸的时候，反转uv的u坐标
+    float sdfUVx = lerp(input.uv.x, 1 - input.uv.x, isRight);
+    float2 sdfUV = float2(sdfUVx, input.uv.y);
+    //使用uv采样面部贴图的a通道
+    float sdfValue = 0;
     #if defined(_USEFACELIGHTMAPCHANNEL_R)
-        float lightStrength = ilmTexCol.r;
+        sdfValue = SAMPLE_TEXTURE2D(_FaceMap, sampler_FaceMap, sdfUV).r;
     #else
-        float lightStrength = ilmTexCol.a;
+        sdfValue = SAMPLE_TEXTURE2D(_FaceMap, sampler_FaceMap, sdfUV).a;
     #endif
-    
-    float brightAreaMask = step(lightThreshold, lightStrength);
+    sdfValue += _FaceShadowOffset;
+    //dot(lightDir,headForward)的范围是[1,-1]映射到[0,1]
+    float FoL01 = (dot(headDirWSForward, lightDirProj) * 0.5 + 0.5);
+    //采样结果大于点乘结果，不在阴影，小于则处于阴影
+    float sdfShadow = smoothstep(FoL01 - _FaceShadowTransitionSoftness, FoL01 + _FaceShadowTransitionSoftness, 1 - sdfValue);
+    float brightAreaMask = 1 - sdfShadow;
 
-    half3 brightAreaColor = mainTexCol.rgb * _LightAreaColorTint.rgb;
-    half3 shadowAreaColor = mainTexCol.rgb * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);
+    half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv);
+    half4 metalTexCol = SAMPLE_TEXTURE2D(_MetalTex, sampler_MetalTex, input.uv);
+    half3 rampTexCol = mainTexCol.rgb;
 
-    half3 lightingColor = lerp(shadowAreaColor, brightAreaColor, brightAreaMask) * _MainTexColoring.rgb;
+    float3 diffuseColor = 0;
+    half3 brightAreaColor = rampTexCol.rgb * _LightAreaColorTint.rgb;
+    half3 shadowAreaColor = rampTexCol.rgb * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);
+
+    half3 ShadowColorTint = lerp(shadowAreaColor, brightAreaColor, brightAreaMask);
+    diffuseColor = ShadowColorTint * mainTexCol.rgb;
 
     //边缘光部分
     float3 rimLightColor;
     #if _RIM_LIGHTING_ON
-        //获取当前片元的深度
-        float linearEyeDepth = LinearEyeDepth(input.positionCS.z, _ZBufferParams);
-        //根据视线空间的法线采样左边或者右边的深度图
-        float3 normalVS = mul((float3x3)UNITY_MATRIX_V, normalWS);
-        //根据视线空间的法线采样左边或者右边的深度图，根据深度缩放，实现近大远小的效果
-        float2 uvOffset = float2(sign(normalVS.x), 0) * _RimLightWidth / (1 + linearEyeDepth) / 100;
-        int2 loadTexPos = input.positionCS.xy + uvOffset * _ScaledScreenParams.xy;
-        //限制左右，不采样到边界
-        loadTexPos = min(max(loadTexPos, 0), _ScaledScreenParams.xy - 1);
-        //偏移后的片元深度
-        float offsetSceneDepth = LoadSceneDepth(loadTexPos);
-        //转换为LinearEyeDepth
-        float offsetLinearEyeDepth = LinearEyeDepth(offsetSceneDepth, _ZBufferParams);
-        //深度差超过阈值，表示是边界
-        float rimLight = saturate(offsetLinearEyeDepth - (linearEyeDepth + _RimLightThreshold)) / _RimLightFadeout;
-        rimLightColor = rimLight * LightColor.rgb;
-        rimLightColor *= _RimLightTintColor;
-        rimLightColor *= _RimLightBrightness;
+        RimLightMaskData rimLightMaskData;
+        rimLightMaskData.color = _RimColor.rgb;
+        rimLightMaskData.width = _RimWidth;
+        rimLightMaskData.edgeSoftness = _RimEdgeSoftness;
+        rimLightMaskData.modelScale = _ModelScale;
+        rimLightMaskData.ditherAlpha = 1;
+
+        RimLightData rimLightData;
+        rimLightData.darkenValue = _RimDark;
+        rimLightData.intensityFrontFace = _RimIntensity;
+        rimLightData.intensityBackFace = _RimIntensityBackFace;
+
+        float3 rimLightMask = GetRimLightMask(rimLightMaskData, normalWS, viewDirectionWS, NoV, input.positionCS, float4(1, 1, 1, 1));
+        rimLightColor = GetRimLight(rimLightData, rimLightMask, NoL, mainLight, isFrontFace);
     #else
         rimLightColor = 0;
     #endif
 
     float3 FinalDiffuse = 0;
     //遮罩贴图的rg通道区分受光照影响的区域和不受影响的区域
-    FinalDiffuse = lerp(mainTexCol.rgb, lightingColor, metalTexCol.r);
-    FinalDiffuse += rimLightColor * lerp(1, FinalDiffuse, _RimLightMixAlbedo);
+    FinalDiffuse = lerp(mainTexCol.rgb, diffuseColor, metalTexCol.r);
+    FinalDiffuse += rimLightColor;
 
     float alpha = _Alpha;
 
     float4 FinalColor = float4(FinalDiffuse, alpha);
-    clip(FinalColor.a - _AlphaClip);
+    DoClipTestToTargetAlphaValue(FinalColor.a, _AlphaClip);
     FinalColor.rgb = MixFog(FinalColor.rgb, input.positionWSAndFogFactor.w);
 
     return FinalColor;

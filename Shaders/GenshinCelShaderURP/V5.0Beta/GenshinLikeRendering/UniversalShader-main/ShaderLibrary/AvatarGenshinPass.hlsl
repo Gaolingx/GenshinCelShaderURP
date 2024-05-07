@@ -127,11 +127,11 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
 
     half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv);
 
-    float halfLambert = 0.5 * NoL + input.vertexColor.g;
+    float remappedNoL = NoL + input.vertexColor.g;
 
     half3 diffuseColor = 0;
     //Diffuse
-    half3 rampTexCol = GetShadowRampColor(ilmTexCol, halfLambert, mainLight.shadowAttenuation);
+    half3 rampTexCol = GetShadowRampColor(ilmTexCol, remappedNoL, mainLight.shadowAttenuation);
     half3 brightAreaColor = rampTexCol * _LightAreaColorTint.rgb;
     //以上获取的Shadow Color颜色对固有阴影的颜色处理不够深，所以通过ShadowColor进一步调色
     half3 darkShadowColor = rampTexCol * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);

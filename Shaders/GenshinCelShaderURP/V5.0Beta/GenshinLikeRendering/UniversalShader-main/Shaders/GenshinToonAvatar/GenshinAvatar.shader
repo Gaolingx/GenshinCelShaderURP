@@ -3,28 +3,33 @@ Shader "GenshinCelShaderURP/V5.0Beta"
     Properties
     {
         [Header(General)]
-        [KeywordEnum(Body, Face)]_RenderType("Render Type", float) = 0.0
-        [KeywordEnum(R, A)]_UseFaceLightMapChannel("Use Face Lightmap Channel", float) = 1.0
-        [Toggle]_UseCoolShadowColorOrTex("Use Cool Ramp Shadow", float) = 0.0
-        _FrontFaceTintColor("Front face tint color (Default white)", Color) = (1,1,1)
-        _BackFaceTintColor("Back face tint color (Default white)", Color) = (1,1,1)
-        [KeywordEnum(None,Flicker,Emission,AlphaTest)]_MainTexAlphaUse("Diffuse Texture Alpha Use", float) = 0.0
+        [KeywordEnum(Body, Face)] _RenderType("Render Type", Float) = 0.0
+        [KeywordEnum(R, A)] _UseFaceLightMapChannel("Use Face Lightmap Channel", Float) = 1.0
+        [Toggle] _UseCoolShadowColorOrTex("Use Cool Ramp Shadow", Float) = 0.0
+        _FrontFaceTintColor("Front face tint color (Default white)", Color) = (1.0, 1.0, 1.0, 1.0)
+        _BackFaceTintColor("Back face tint color (Default white)", Color) = (1.0, 1.0, 1.0, 1.0)
+        [KeywordEnum(None, Flicker, Emission, AlphaTest)] _MainTexAlphaUse("Diffuse Texture Alpha Use", Float) = 0.0
         _Alpha("Alpha (Default 1)", Range(0, 1)) = 1
         _AlphaClip("Alpha clip (Default 0.5)", Range(0.0, 1.0)) = 0.5
 
-        [Header(Lighting)]
-        _MainTex("Diffuse Texture", 2D) = "white"{}
-        _ilmTex("ilm Texture", 2D) = "white"{}
-        _RampTex("Ramp Texture", 2D) = "white"{}
-        _BrightFac("Bright Factor", float) = 0.99
-        _GreyFac("Gray Factor", float) = 1.08
-        _DarkFac("Dark Factor", float) = 0.55
-        _RampAOLerp ("Shadow AO Lerp", Range(0.0, 1.0)) = 0.5
+        [Header(Main Lighting)]
+        _MainTex("Diffuse Texture", 2D) = "white" { }
+        _ilmTex("ilm Texture", 2D) = "white" { }
+        _RampTex("Ramp Texture", 2D) = "white" { }
+        _BrightFac("Bright Factor", Float) = 0.99
+        _GreyFac("Gray Factor", Float) = 1.08
+        _DarkFac("Dark Factor", Float) = 0.55
+        _RampAOLerp("Shadow AO Lerp", Range(0.0, 1.0)) = 0.5
+
+        [Header(Indirect Lighting)]
+        _IndirectLightFlattenNormal("Indirect light flatten normal (Default 0)", Range(0, 1)) = 0
+        _IndirectLightIntensity("Indirect light intensity (Default 1)", Range(0, 2)) = 1
+        _IndirectLightUsage("Indirect light color usage (Default 0.5)", Range(0, 1)) = 0.5
 
         [Header(Face Settings)]
-        _FaceMap("Face SDF Texture", 2D) = "white"{}
+        _FaceMap("Face SDF Texture", 2D) = "white" { }
         _FaceShadowOffset("Face Shadow Offset", range(-1.0, 1.0)) = 0.0
-        _FaceShadowTransitionSoftness("Face shadow transition softness (Default 0.05)", Range(0, 1)) = 0.03
+        _FaceShadowTransitionSoftness("Face shadow transition softness (Default 0.05)", Range(0, 1)) = 0.05
 
         [Header(ColorGrading)]
         _LightAreaColorTint("Light Area Color Tint", Color) = (1.0, 1.0, 1.0, 1.0)
@@ -40,12 +45,13 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         [IntRange] _RampIndex4("RampIndex_0.0", Range(1, 5)) = 2
 
         [Header(Normal)]
-        [Toggle(_NORMAL_MAP_ON)] _UseNormalMap("Use Normal Map", Float) = 0
-        [Normal] _NormalMap("Normal Map", 2D) = "bump" {}
-        
+        [Toggle(_NORMAL_MAP_ON)] _UseNormalMap("Use Normal Map (Default NO)", Float) = 0
+        _BumpFactor("Bump Scale", Float) = 1.0
+        [Normal] _NormalMap("Normal Map (Default black)", 2D) = "bump" { }
+
         [Header(Specular)]
-        [Toggle(_SPECULAR_ON)] _EnableSpecular ("Enable Specular (Default YES)", float) = 1
-        _MetalTex("Metal Texture", 2D) = "Gray"{}
+        [Toggle(_SPECULAR_ON)] _EnableSpecular ("Enable Specular (Default YES)", Float) = 1
+        _MetalTex("Metal Texture", 2D) = "Gray" { }
         _MTMapBrightness("Metal Map Brightness", Range(0.0, 10.0)) = 3.0
         _MTShininess("Metal Shininess", Range(0.0, 100.0)) = 90.0
         _MTSpecularScale("Metal Specular Scale", Range(0.0, 100.0)) = 15.0
@@ -64,22 +70,23 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _RimEdgeSoftness("Rim Edge Softness", Float) = 0.05
 
         [Header(Emission)]
-        [Toggle(_EMISSION_ON)] _UseEmission("Use emission (Default NO)",float) = 0
+        [Toggle(_EMISSION_ON)] _UseEmission("Use emission (Default NO)", Float) = 0
         _EmissionScaler("Emission Scaler", Range(1.0, 10.0)) = 5.0
 
         [Header(Outline)]
-        [Toggle(_OUTLINE_ON)] _UseOutline("Use outline (Default YES)", float ) = 1
+        [Toggle(_OUTLINE_ON)] _UseOutline("Use outline (Default YES)", Float) = 1
         _OutlineWidthAdjustScale("Outline Width Adjust Scale", Range(0.0, 1.0)) = 0.1
-        [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color (Default NO)", float ) = 0
+        [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color (Default NO)", Float) = 0
         [ToggleUI] _IsFace("Use Clip Pos With ZOffset (face material)", Float) = 0
-        _OutlineZOffset("_OutlineZOffset (View Space)", Range(0,1)) = 0.0001
+        _OutlineZOffset("_OutlineZOffset (View Space)", Range(0, 1)) = 0.0001
         _CustomOutlineCol("Custom Outline Color", Color) = (1.0, 1.0, 1.0, 1.0)
         _OutlineColor1("Outline Color 1", Color) = (0.0, 0.0, 0.0, 1.0)
         _OutlineColor2("Outline Color 2", Color) = (0.1, 0.1, 0.1, 1.0)
         _OutlineColor3("Outline Color 3", Color) = (0.2, 0.2, 0.2, 1.0)
         _OutlineColor4("Outline Color 4", Color) = (0.3, 0.3, 0.3, 1.0)
         _OutlineColor5("Outline Color 5", Color) = (0.4, 0.4, 0.4, 1.0)
-        [KeywordEnum(Null, VertexColor, NormalTexture)]_UseSmoothNormal("Use Smooth Normal From", float) = 0.0
+        [KeywordEnum(Null, VertexColor, NormalTexture)] _UseSmoothNormal("Use Smooth Normal From", Float) = 0.0
+        _SmoothNormalTex("SmoothNormal Texture", 2D) = "white" { }
 
         [Header(Debug)]
         _DebugValue01("Debug Value 0-1", Range(0.0, 1.0)) = 0.0
@@ -199,7 +206,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             ZWrite [_ZWrite]
             ZTest LEqual
             ColorMask 0
-            Cull[_Cull]
+            Cull [_CullMode]
 
             HLSLPROGRAM
             #pragma exclude_renderers gles gles3 glcore
@@ -231,7 +238,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
 
             ZWrite [_ZWrite]
             ColorMask 0
-            Cull[_Cull]
+            Cull [_CullMode]
 
             HLSLPROGRAM
             #pragma exclude_renderers gles gles3 glcore
@@ -259,7 +266,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             Tags{"LightMode" = "DepthNormals"}
 
             ZWrite [_ZWrite]
-            Cull[_Cull]
+            Cull [_CullMode]
 
             HLSLPROGRAM
             #pragma exclude_renderers gles gles3 glcore

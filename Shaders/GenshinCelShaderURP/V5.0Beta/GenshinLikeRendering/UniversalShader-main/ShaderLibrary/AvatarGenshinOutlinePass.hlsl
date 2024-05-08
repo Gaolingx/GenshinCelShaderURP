@@ -46,7 +46,7 @@ Varyings BackFaceOutlineVertex(Attributes input)
                     ));
             OutlineData outlineData = GetOutlineData(outlineWidth * step(0.25, input.vertexColor.a), input.positionOS.xyz, input.normalOS, vertexPositionInputs.positionVS.z, input.tangentOS, smoothNormalTS);
         #else
-            float2 smoothNormalTexCol = SAMPLE_TEXTURE2D_LOD(_SmoothNormalTex, sampler_SmoothNormalTex, input.uv, 0);
+            float2 smoothNormalTexCol = SAMPLE_TEXTURE2D_LOD(_SmoothNormalTex, sampler_SmoothNormalTex, input.uv, 0).rg;
             float3 smoothNormalTS = normalize(float3(smoothNormalTexCol.r, smoothNormalTexCol.g,
                 sqrt(1 - dot(float2(smoothNormalTexCol.r, smoothNormalTexCol.g), float2(smoothNormalTexCol.r, smoothNormalTexCol.g)))
                     ));

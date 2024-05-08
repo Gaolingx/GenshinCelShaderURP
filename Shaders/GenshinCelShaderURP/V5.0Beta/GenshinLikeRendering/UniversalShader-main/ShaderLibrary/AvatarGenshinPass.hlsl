@@ -22,9 +22,21 @@ struct Varyings
     float4 positionWSAndFogFactor : TEXCOORD1;
     float3 bitangentWS : TEXCOORD2;
     float3 tangentWS : TEXCOORD3;
+    float3 SH : TEXCOORD4;
     float4 vertexColor : COLOR;
 };
 
+float3 desaturation(float3 color)
+{
+    float3 grayXfer = float3(0.3, 0.59, 0.11);
+    float grayf = dot(color, grayXfer);
+    return float3(grayf, grayf, grayf);
+}
+
+float3 CalculateGI(float3 baseColor, float diffuseThreshold, float3 sh, float intensity, float mainColorLerp)
+{
+    return intensity * lerp(float3(1, 1, 1), baseColor, mainColorLerp) * lerp(desaturation(sh), sh, mainColorLerp) * diffuseThreshold;
+}
 
 float3 GetShadowRampColor(float4 lightmap, float NdotL, float atten)
 {
@@ -79,16 +91,20 @@ Varyings GenshinStyleVertex(Attributes input)
     output.uv = input.uv;
     output.vertexColor = input.vertexColor;
 
+    // 间接光 with 球谐函数
+    output.SH = SampleSH(lerp(vertexNormalInputs.normalWS, float3(0, 0, 0), _IndirectLightFlattenNormal));
+
     return output;
 }
 
 half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : SV_Target
 {
-    half4 BaseMap = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
-    half4 mainTexCol =  BaseMap;
+    half4 mainTexCol = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
     //给背面填充颜色，对眼睛，丝袜很有用
     mainTexCol.rgb *= lerp(_BackFaceTintColor, _FrontFaceTintColor, isFrontFace);
-    
+
+    half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv);
+
     Light mainLight = GetMainLight();
     //获取主光源颜色
     float4 LightColor = float4(mainLight.color.rgb, 1);
@@ -99,10 +115,11 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
 
     //获取世界空间法线，如果要采样NormalMap，要使用TBN矩阵变换
     #if _NORMAL_MAP_ON
-        float3x3 tangentToWorld = half3x3(input.tangentWS, input.bitangentWS, input.normalWS);
-        float4 normalMap = SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, input.uv);
-        float3 normalTS = UnpackNormal(normalMap);
-        float3 normalWS = TransformTangentToWorld(normalTS, tangentToWorld, true);
+        float3x3 tangentToWorld = float3x3(input.tangentWS, input.bitangentWS, input.normalWS);
+        float3 normalTS = UnpackNormal(SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, input.uv));
+        float3 normalFactor = float3(_BumpFactor, _BumpFactor, 1);
+        float3 normal = normalize(normalTS * normalFactor);
+        float3 normalWS = TransformTangentToWorld(normal, tangentToWorld, true);
         input.normalWS = normalWS;
     #else
         float3 normalWS = normalize(input.normalWS);
@@ -125,7 +142,8 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
         emissionFactor = 0;
     #endif
 
-    half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv);
+    //间接光
+    float3 indirectLightColor = CalculateGI(mainTexCol, ilmTexCol.g, input.SH.rgb, _IndirectLightIntensity, _IndirectLightUsage);
 
     float remappedNoL = NoL + input.vertexColor.g;
 
@@ -183,6 +201,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
 
     //最终的合成
     float3 FinalDiffuse = 0;
+    FinalDiffuse += indirectLightColor;
     FinalDiffuse += diffuseColor;
     FinalDiffuse += FinalSpecCol;
     FinalDiffuse += rimLightColor;
@@ -228,9 +247,9 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     float sdfShadow = smoothstep(FoL01 - _FaceShadowTransitionSoftness, FoL01 + _FaceShadowTransitionSoftness, 1 - sdfValue);
     float brightAreaMask = 1 - sdfShadow;
 
-    half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv);
-    half4 metalTexCol = SAMPLE_TEXTURE2D(_MetalTex, sampler_MetalTex, input.uv);
-    half3 rampTexCol = mainTexCol.rgb;
+    float remappedNoL = NoL;
+    half3 rampTexCol = GetShadowRampColor(ilmTexCol, remappedNoL, mainLight.shadowAttenuation);
+    //half3 rampTexCol = mainTexCol.rgb;
 
     float3 diffuseColor = 0;
     half3 brightAreaColor = rampTexCol.rgb * _LightAreaColorTint.rgb;
@@ -238,6 +257,9 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
 
     half3 ShadowColorTint = lerp(shadowAreaColor, brightAreaColor, brightAreaMask);
     diffuseColor = ShadowColorTint * mainTexCol.rgb;
+
+    //间接光
+    float3 indirectLightColor = CalculateGI(mainTexCol, ilmTexCol.g, input.SH.rgb, _IndirectLightIntensity, _IndirectLightUsage);
 
     //边缘光部分
     float3 rimLightColor;
@@ -261,8 +283,9 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     #endif
 
     float3 FinalDiffuse = 0;
+    FinalDiffuse += indirectLightColor;
     //遮罩贴图的rg通道区分受光照影响的区域和不受影响的区域
-    FinalDiffuse = lerp(mainTexCol.rgb, diffuseColor, metalTexCol.r);
+    FinalDiffuse += lerp(mainTexCol.rgb, diffuseColor, ilmTexCol.r);
     FinalDiffuse += rimLightColor;
 
     float alpha = _Alpha;

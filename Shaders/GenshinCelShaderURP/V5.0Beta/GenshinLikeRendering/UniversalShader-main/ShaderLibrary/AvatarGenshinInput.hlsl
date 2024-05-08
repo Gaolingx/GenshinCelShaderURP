@@ -14,9 +14,6 @@
 // all sampler2D don't need to put inside CBUFFER 
 
 
-TEXTURE2D(_HairShadowMask);
-SAMPLER(sampler_HairShadowMask);
-
 TEXTURE2D(_MainTex);
 SAMPLER(sampler_MainTex);
 TEXTURE2D(_ilmTex);
@@ -50,6 +47,14 @@ float3 _BackFaceTintColor;
 float _Alpha;
 float _AlphaClip;
 
+//Light
+float _IndirectLightFlattenNormal;
+float _IndirectLightIntensity;
+float _IndirectLightUsage;
+
+//NormalMap
+float _BumpFactor;
+
 //Ramp
 float _RampIndex0;
 float _RampIndex1;
@@ -67,7 +72,6 @@ float _FaceShadowOffset;
 half4 _DarkShadowColor;
 half4 _CoolDarkShadowColor;
 float _BrightAreaShadowFac;
-float3 _DarkShadowColorTint;
 float _FaceShadowTransitionSoftness;
 
 //Specular
@@ -88,10 +92,8 @@ float _RimDark;
 float _RimEdgeSoftness;
 
 //Outline
-float   _IsFace;
-float   _OutlineZOffset;
-float   _OutlineZOffsetMaskRemapStart;
-float   _OutlineZOffsetMaskRemapEnd;
+float _IsFace;
+float _OutlineZOffset;
 half4 _CustomOutlineCol;
 half4 _OutlineColor1;
 half4 _OutlineColor2;

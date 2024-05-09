@@ -143,7 +143,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     #endif
 
     //间接光
-    float3 indirectLightColor = CalculateGI(mainTexCol, ilmTexCol.g, input.SH.rgb, _IndirectLightIntensity, _IndirectLightUsage);
+    float3 indirectLightColor = CalculateGI(mainTexCol.rgb, ilmTexCol.g, input.SH.rgb, _IndirectLightIntensity, _IndirectLightUsage);
 
     float remappedNoL = NoL + input.vertexColor.g;
 
@@ -259,7 +259,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     diffuseColor = ShadowColorTint * mainTexCol.rgb;
 
     //间接光
-    float3 indirectLightColor = CalculateGI(mainTexCol, ilmTexCol.g, input.SH.rgb, _IndirectLightIntensity, _IndirectLightUsage);
+    float3 indirectLightColor = CalculateGI(mainTexCol.rgb, ilmTexCol.g, input.SH.rgb, _IndirectLightIntensity, _IndirectLightUsage);
 
     //边缘光部分
     float3 rimLightColor;

@@ -100,7 +100,9 @@ half4 _OutlineColor2;
 half4 _OutlineColor3;
 half4 _OutlineColor4;
 half4 _OutlineColor5;
-float _OutlineWidthAdjustScale;
+float _OutlineWidth;
+float _OutlineWidthMin;
+float _OutlineWidthMax;
 
 float _DebugValue01;
 CBUFFER_END

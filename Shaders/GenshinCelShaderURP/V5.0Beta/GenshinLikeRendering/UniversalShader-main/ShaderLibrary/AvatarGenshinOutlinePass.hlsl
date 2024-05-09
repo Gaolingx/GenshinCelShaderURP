@@ -2,23 +2,36 @@
 #define CUSTOM_AVATAR_GENSHIN_OUTLINE_PASS_INCLUDED
 
 #include "../ShaderLibrary/AvatarGenshinInput.hlsl"
-#include "../ShaderLibrary/AvatarBackFacingOutline.hlsl"
 #include "../ShaderLibrary/NiloZOffset.hlsl"
 
-struct Attributes
+struct CharOutlineAttributes
 {
-    float4 positionOS : POSITION;
-    float3 normalOS : NORMAL;
-    float4 tangentOS : TANGENT;
-    float4 vertexColor : COLOR;
-    float2 uv : TEXCOORD0;
+    float3 positionOS   : POSITION;
+    float3 normalOS     : NORMAL;
+    float4 tangentOS    : TANGENT;
+    float4 color        : COLOR;
+    float2 baseUV       : TEXCOORD0;
+    float2 addUV        : TEXCOORD1;
+    float2 packSmoothNormal : TEXCOORD2;
 };
 
-struct Varyings
+struct CharOutlineVaryings
 {
     float4 positionCS : SV_POSITION;
-    float2 uv : TEXCOORD0;
-    float fogFactor : TEXCOORD1;
+    float3 positionVS : TEXCOORD0;
+    float3 positionWS : TEXCOORD1;
+    float4 positionNDC : TEXCOORD2;
+    float2 baseUV : TEXCOORD3;
+    float2 addUV : TEXCOORD4;
+    half3 color : TEXCOORD5;
+    half3 normalWS : TEXCOORD6;
+    half3 tangentWS : TEXCOORD7;
+    half3 bitangentWS : TEXCOORD8;
+
+    half3 sh : TEXCOORD9;
+
+    float2 packSmoothNormal : TEXCOORD10;
+    float fogFactor : TEXCOORD11;
 };
 
 void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold) 
@@ -26,65 +39,99 @@ void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold)
     clip(alpha - alphaTestThreshold);
 }
 
-Varyings BackFaceOutlineVertex(Attributes input)
+float3 GetSmoothNormalWS(CharOutlineAttributes input)
 {
-    Varyings output;
-    VertexPositionInputs vertexPositionInputs = GetVertexPositionInputs(input.positionOS.xyz);
+    float3 smoothNormalOS = input.normalOS;
     
-    float outlineWidth = _OutlineWidthAdjustScale * 0.0002;//乘上0.0001使得Inspector面板属性控制器能在0-1之间调整
-    
-    //获取不同类型的平滑法线信息，进行模型外扩：
-    //1.Null:不使用额外的平滑法线，直接使用模型原本的法线信息
-    //2.VertexColor:使用顶点色RG通道存储平滑法线信息
-    //3.NormalTexture:使用贴图RG通道存储切线空间平滑法线信息
-    #if defined(_USESMOOTHNORMAL_VERTEXCOLOR) || defined(_USESMOOTHNORMAL_NORMALTEXTURE)
-        #if defined(_USESMOOTHNORMAL_VERTEXCOLOR)
-            input.vertexColor.r = input.vertexColor.r * 2.0 - 1.0;
-            input.vertexColor.g = input.vertexColor.g * 2.0 - 1.0;
-            float3 smoothNormalTS = normalize(float3(input.vertexColor.r, input.vertexColor.g,
-                sqrt(1 - dot(float2(input.vertexColor.r, input.vertexColor.g), float2(input.vertexColor.r, input.vertexColor.g)))
-                    ));
-            OutlineData outlineData = GetOutlineData(outlineWidth * step(0.25, input.vertexColor.a), input.positionOS.xyz, input.normalOS, vertexPositionInputs.positionVS.z, input.tangentOS, smoothNormalTS);
-        #else
-            float2 smoothNormalTexCol = SAMPLE_TEXTURE2D_LOD(_SmoothNormalTex, sampler_SmoothNormalTex, input.uv, 0).rg;
-            float3 smoothNormalTS = normalize(float3(smoothNormalTexCol.r, smoothNormalTexCol.g,
-                sqrt(1 - dot(float2(smoothNormalTexCol.r, smoothNormalTexCol.g), float2(smoothNormalTexCol.r, smoothNormalTexCol.g)))
-                    ));
-            OutlineData outlineData = GetOutlineData(outlineWidth, input.positionOS.xyz, input.normalOS, vertexPositionInputs.positionVS.z, input.tangentOS, smoothNormalTS);
-        #endif
-    #else
-        OutlineData outlineData = GetOutlineData(outlineWidth, input.positionOS.xyz, input.normalOS, vertexPositionInputs.positionVS.z);
+    #ifdef _OUTLINENORMALCHANNEL_NORMAL
+        smoothNormalOS = input.normalOS;
+    #elif _OUTLINENORMALCHANNEL_TANGENT
+        smoothNormalOS = input.tangentOS.xyz;
+    #elif _OUTLINENORMALCHANNEL_UV2
+        float3 normalOS = normalize(input.normalOS);
+        float3 tangentOS = normalize(input.tangentOS.xyz);
+        float3 bitangentOS = normalize(cross(normalOS, tangentOS) * (input.tangentOS.w * GetOddNegativeScale()));
+        float3 smoothNormalTS = UnpackNormalOctQuadEncode(input.packSmoothNormal);
+        smoothNormalOS = mul(smoothNormalTS, float3x3(tangentOS, bitangentOS, normalOS));
     #endif
 
-    //获取并应用HClip Space下的偏移值
-    float2 outlinePositionOffsetCS = GetOutlinedOffsetHClip(outlineData);
-    output.positionCS = vertexPositionInputs.positionCS;
-    output.positionCS.xy += outlinePositionOffsetCS * input.vertexColor.a;
+    return TransformObjectToWorldNormal(smoothNormalOS);
+}
 
-    // Apply ZOffset
-    output.positionCS = NiloGetNewClipPosWithZOffset(output.positionCS, _OutlineZOffset + 0.03 * _IsFace);
+float CalculateExtendWidthWS(float3 positionWS, float3 extendVectorWS, float extendWS, float minExtendSS, float maxExtendSS)
+{
+    float4 positionCS = TransformWorldToHClip(positionWS);
+    float4 extendPositionCS = TransformWorldToHClip(positionWS + extendVectorWS * extendWS);
+
+    float2 delta = extendPositionCS.xy / extendPositionCS.w - positionCS.xy / positionCS.w;
+    delta *= GetScaledScreenParams().xy / GetScaledScreenParams().y * 1080.0f;
+
+    const float extendLen = length(delta);
+    float width = extendWS * min(1.0, maxExtendSS / extendLen) * max(1.0, minExtendSS / extendLen);
+
+    return width;
+}
+
+float3 ExtendOutline(float3 positionWS, float3 smoothNormalWS, float width, float widthMin, float widthMax)
+{
+    float offsetLen = CalculateExtendWidthWS(positionWS, smoothNormalWS, width, widthMin, widthMax);
+
+    return positionWS + smoothNormalWS * offsetLen;
+}
+
+
+CharOutlineVaryings BackFaceOutlineVertex(CharOutlineAttributes input)
+{
+    VertexPositionInputs vertexPositionInput = GetVertexPositionInputs(input.positionOS);
+    VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
+
+    float3 smoothNormalWS = GetSmoothNormalWS(input);
+    float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
+
+    float outlineWidth = input.color.a;
     
-    output.uv = input.uv;
+    positionWS = ExtendOutline(positionWS, smoothNormalWS,
+        _OutlineWidth * outlineWidth, _OutlineWidthMin * outlineWidth, _OutlineWidthMax * outlineWidth);
 
-    output.fogFactor = ComputeFogFactor(vertexPositionInputs.positionCS.z);
+    float3 positionVS = TransformWorldToView(positionWS);
+    float4 positionCS = TransformWorldToHClip(positionWS);
+
+    positionCS = NiloGetNewClipPosWithZOffset(positionCS, _OutlineZOffset + 0.03 * _IsFace);
+
+    CharOutlineVaryings output = (CharOutlineVaryings)0;
+    output.positionCS = positionCS;
+    output.positionVS = positionVS;
+    output.positionWS = positionWS;
+    //output.positionNDC = positionNDC;
+    output.baseUV = input.baseUV;
+    output.color = input.color.rgb;
+    output.normalWS = normalInput.normalWS;
+    output.tangentWS = normalInput.tangentWS;
+    output.bitangentWS = normalInput.bitangentWS;
+
+    output.sh = 0;
+    output.packSmoothNormal = input.packSmoothNormal;
+
+    output.fogFactor = ComputeFogFactor(vertexPositionInput.positionCS.z);
 
     return output;
 }
 
-half4 BackFaceOutlineFragment(Varyings input) : SV_Target
+half4 BackFaceOutlineFragment(CharOutlineVaryings input) : SV_Target
 {
     //根据ilmTexture的五个分组区分出五个不同颜色的描边区域
-    half outlineColorMask = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv).a;
+    half outlineColorMask = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.baseUV).a;
     half areaMask1 = step(0.003, outlineColorMask) - step(0.35, outlineColorMask);
     half areaMask2 = step(0.35, outlineColorMask) - step(0.55, outlineColorMask);
     half areaMask3 = step(0.55, outlineColorMask) - step(0.75, outlineColorMask);
     half areaMask4 = step(0.75, outlineColorMask) - step(0.95, outlineColorMask);
     half areaMask5 = step(0.95, outlineColorMask);
 
+    half3 finalOutlineColor = 0;
     #if _OUTLINE_CUSTOM_COLOR_ON
-        half3 finalOutlineColor = _CustomOutlineCol.rgb;
+        finalOutlineColor = _CustomOutlineCol.rgb;
     #else
-        half3 finalOutlineColor = (1.0 - (areaMask1 + areaMask2 + areaMask3 + areaMask4 + areaMask5)) * _OutlineColor1.rgb + areaMask2 * _OutlineColor2.rgb + areaMask3 * _OutlineColor3.rgb + areaMask4 * _OutlineColor4.rgb + areaMask5 * _OutlineColor5.rgb;
+        finalOutlineColor = (1.0 - (areaMask1 + areaMask2 + areaMask3 + areaMask4 + areaMask5)) * _OutlineColor1.rgb + areaMask2 * _OutlineColor2.rgb + areaMask3 * _OutlineColor3.rgb + areaMask4 * _OutlineColor4.rgb + areaMask5 * _OutlineColor5.rgb;
     #endif
     
     float alpha = _Alpha;

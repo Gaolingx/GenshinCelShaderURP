@@ -74,19 +74,20 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _EmissionScaler("Emission Scaler", Range(1.0, 10.0)) = 5.0
 
         [Header(Outline)]
-        [Toggle(_OUTLINE_ON)] _UseOutline("Use outline (Default YES)", Float) = 1
-        _OutlineWidthAdjustScale("Outline Width Adjust Scale", Range(0.0, 1.0)) = 0.1
+        [Toggle(_ENABLE_OUTLINE)] _EnableOutlineToggle("Enable Outline (Default YES)", Float) = 1
+        [KeywordEnum(Normal, Tangent, UV2)] _OutlineNormalChannel("Outline Normal Channel", Float) = 0
         [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color (Default NO)", Float) = 0
         [ToggleUI] _IsFace("Use Clip Pos With ZOffset (face material)", Float) = 0
         _OutlineZOffset("_OutlineZOffset (View Space)", Range(0, 1)) = 0.0001
+        _OutlineWidth("OutlineWidth (WS)(m)", Range(0, 0.01)) = 0.0035
+        _OutlineWidthMin("Outline Width Min (SS)(pixel)", Range(0, 10)) = 2
+        _OutlineWidthMax("Outline Width Max (SS)(pixel)", Range(0, 30)) = 30
         _CustomOutlineCol("Custom Outline Color", Color) = (1.0, 1.0, 1.0, 1.0)
         _OutlineColor1("Outline Color 1", Color) = (0.0, 0.0, 0.0, 1.0)
         _OutlineColor2("Outline Color 2", Color) = (0.1, 0.1, 0.1, 1.0)
         _OutlineColor3("Outline Color 3", Color) = (0.2, 0.2, 0.2, 1.0)
         _OutlineColor4("Outline Color 4", Color) = (0.3, 0.3, 0.3, 1.0)
         _OutlineColor5("Outline Color 5", Color) = (0.4, 0.4, 0.4, 1.0)
-        [KeywordEnum(Null, VertexColor, NormalTexture)] _UseSmoothNormal("Use Smooth Normal From", Float) = 0.0
-        _SmoothNormalTex("SmoothNormal Texture", 2D) = "white" { }
 
         [Header(Debug)]
         _DebugValue01("Debug Value 0-1", Range(0.0, 1.0)) = 0.0
@@ -170,11 +171,11 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             HLSLPROGRAM
             #pragma vertex BackFaceOutlineVertex
             #pragma fragment BackFaceOutlineFragment
-            #pragma shader_feature_local _ _USESMOOTHNORMAL_VERTEXCOLOR _USESMOOTHNORMAL_NORMALTEXTURE _USESMOOTHNORMAL_NULL
-            #pragma shader_feature_local _OUTLINE_ON
+            #pragma shader_feature _OUTLINENORMALCHANNEL_NORMAL _OUTLINENORMALCHANNEL_TANGENT _OUTLINENORMALCHANNEL_UV2
+            #pragma shader_feature_local _ENABLE_OUTLINE
             #pragma shader_feature_local _OUTLINE_CUSTOM_COLOR_ON
             
-            #if _OUTLINE_ON
+            #if _ENABLE_OUTLINE
             
                 // all shader logic written inside this .hlsl, remember to write all #define BEFORE writing #include
                 #include "../../ShaderLibrary/AvatarGenshinOutlinePass.hlsl"

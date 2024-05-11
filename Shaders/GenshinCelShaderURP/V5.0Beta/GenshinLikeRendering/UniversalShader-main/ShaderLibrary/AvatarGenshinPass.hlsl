@@ -38,10 +38,37 @@ float3 CalculateGI(float3 baseColor, float diffuseThreshold, float3 sh, float in
     return intensity * lerp(float3(1, 1, 1), baseColor, mainColorLerp) * lerp(desaturation(sh), sh, mainColorLerp) * diffuseThreshold;
 }
 
-float3 GetShadowRampColor(float4 lightmap, float NdotL, float atten)
+Light GetCharacterMainLightStruct(float4 shadowCoord, float3 positionWS)
+{
+    Light light = GetMainLight();
+
+    #if defined(MAIN_LIGHT_CALCULATE_SHADOWS)
+        ShadowSamplingData shadowSamplingData = GetMainLightShadowSamplingData();
+        half4 shadowParams = GetMainLightShadowParams();
+
+        // 我自己试下来，在角色身上 LowQuality 比 Medium 和 High 好
+        // Medium 和 High 采样数多，过渡的区间大，在角色身上更容易出现 Perspective aliasing
+        shadowSamplingData.softShadowQuality = SOFT_SHADOW_QUALITY_LOW;
+        light.shadowAttenuation = SampleShadowmap(TEXTURE2D_ARGS(_MainLightShadowmapTexture, sampler_LinearClampCompare), shadowCoord, shadowSamplingData, shadowParams, false);
+        light.shadowAttenuation = lerp(light.shadowAttenuation, 1, GetMainLightShadowFade(positionWS));
+    #endif
+
+    #ifdef _LIGHT_LAYERS
+        if (!IsMatchingLightLayer(light.layerMask, GetMeshRenderingLayer()))
+        {
+            // 偷个懒，直接把强度改成 0
+            light.distanceAttenuation = 0;
+            light.shadowAttenuation = 0;
+        }
+    #endif
+
+    return light;
+}
+
+float3 GetShadowRampColor(float4 lightmap, float NdotL, float shadowAttenuation)
 {
     lightmap.g = lerp(1, smoothstep(0.2, 0.3, lightmap.g), _RampAOLerp);  //lightmap.g
-    float halfLambert = smoothstep(0.0, _GreyFac, NdotL + _DarkFac) * lightmap.g * atten;  //半Lambert
+    float halfLambert = smoothstep(0.0, _GreyFac, NdotL + _DarkFac) * lightmap.g * shadowAttenuation;  //半Lambert
     float brightMask = step(_BrightFac, halfLambert);  //亮面
     //判断白天与夜晚
     float rampSampling = 0.0;
@@ -107,9 +134,17 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
 
     half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv);
 
-    Light mainLight = GetMainLight();
+    //阴影坐标
+    float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
+    Light mainLight = GetCharacterMainLightStruct(shadowCoord, input.positionWS);
     //获取主光源颜色
     float4 LightColor = float4(mainLight.color.rgb, 1);
+    //获取灯光阴影
+    #if _MAINLIGHT_SHADOWATTENUATION_ON
+        float shadowAttenuation = mainLight.shadowAttenuation;
+    #else
+        float shadowAttenuation = 1;
+    #endif
     //获取主光源方向
     float3 lightDirectionWS = normalize(mainLight.direction);
     //间接光
@@ -151,7 +186,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
 
     //Diffuse
     half3 diffuseColor = 0;
-    half3 rampTexCol = GetShadowRampColor(ilmTexCol, remappedNoL, mainLight.shadowAttenuation);
+    half3 rampTexCol = GetShadowRampColor(ilmTexCol, remappedNoL, shadowAttenuation);
     half3 brightAreaColor = rampTexCol * _LightAreaColorTint.rgb;
     //以上获取的Shadow Color颜色对固有阴影的颜色处理不够深，所以通过ShadowColor进一步调色
     half3 darkShadowColor = rampTexCol * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);
@@ -174,7 +209,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
         float metalSpecular = ilmTexCol.b * metalBlinnPhongSpecular * metalTexCol;
         half3 specularColor = (metalSpecular * _MTSpecularScale + nonMetalSpecular) * diffuseColor;
         
-        FinalSpecCol = specularColor * _SpecMulti;
+        FinalSpecCol = specularColor * _SpecMulti * shadowAttenuation;
     #else
         FinalSpecCol = 0;
     #endif
@@ -249,10 +284,10 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     float FoL01 = (dot(headDirWSForward, lightDirProj) * 0.5 + 0.5);
     //采样结果大于点乘结果，不在阴影，小于则处于阴影
     float sdfShadow = smoothstep(FoL01 - _FaceShadowTransitionSoftness, FoL01 + _FaceShadowTransitionSoftness, 1 - sdfValue);
-    float brightAreaMask = 1 - sdfShadow;
+    float brightAreaMask = (1 - sdfShadow) * shadowAttenuation;
 
     float remappedNoL = NoL;
-    half3 rampTexCol = GetShadowRampColor(ilmTexCol, remappedNoL, mainLight.shadowAttenuation);
+    half3 rampTexCol = GetShadowRampColor(ilmTexCol, remappedNoL, 1);
     //half3 rampTexCol = mainTexCol.rgb;
 
     half3 diffuseColor = 0;

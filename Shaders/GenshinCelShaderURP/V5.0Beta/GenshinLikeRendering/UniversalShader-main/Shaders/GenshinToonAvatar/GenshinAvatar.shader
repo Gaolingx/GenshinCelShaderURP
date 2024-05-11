@@ -14,6 +14,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _MainTexCutOff("Alpha clip (MainTex)", Range(0.0, 1.0)) = 0.5
 
         [Header(Main Lighting)]
+        [Toggle(_MAINLIGHT_SHADOWATTENUATION_ON)] _UseMainLightshadowAttenuation("Use mainLight shadow attenuation", Float) = 0
         _MainTex("Diffuse Texture", 2D) = "white" { }
         _ilmTex("ilm Texture", 2D) = "white" { }
         _RampTex("Ramp Texture", 2D) = "white" { }
@@ -150,10 +151,18 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             HLSLPROGRAM
             #pragma vertex GenshinStyleVertex
             #pragma fragment GenshinStyleFragment
+
+            #pragma multi_compile _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            // #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile _ _LIGHT_LAYERS
+
             #pragma shader_feature_local _ _MAINTEXALPHAUSE_NONE _MAINTEXALPHAUSE_FLICKER _MAINTEXALPHAUSE_EMISSION _MAINTEXALPHAUSE_ALPHATEST
             #pragma shader_feature_local _ _RENDERTYPE_BODY _RENDERTYPE_FACE
             #pragma shader_feature_fragment _ _USEFACELIGHTMAPCHANNEL_R _USEFACELIGHTMAPCHANNEL_A
             #pragma shader_feature_local _EMISSION_ON
+            #pragma shader_feature_local _MAINLIGHT_SHADOWATTENUATION_ON
             #pragma shader_feature_local_fragment _NORMAL_MAP_ON
             #pragma shader_feature_local _SPECULAR_ON
             #pragma shader_feature_local _RIM_LIGHTING_ON

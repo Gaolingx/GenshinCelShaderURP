@@ -40,6 +40,8 @@ CBUFFER_START(UnityPerMaterial)
 float _UseCoolShadowColorOrTex;
 float _MainTexCutOff;
 float _EmissionScaler;
+float _EmissionMixBaseColorFac;
+float4 _EmissionTintColor;
 float _FinalColorScaler;
 
 float3 _FrontFaceTintColor;

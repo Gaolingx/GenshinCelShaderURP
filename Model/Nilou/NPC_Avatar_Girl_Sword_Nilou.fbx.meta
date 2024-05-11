@@ -1,9 +1,34 @@
 fileFormatVersion: 2
 guid: 6375e930fdec61345947c2ae3a2fb417
 ModelImporter:
-  serializedVersion: 22103
+  serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Avatar_Girl_Sword_Nilou_Mat_Body
+    second: {fileID: 2100000, guid: 457a26b1c3b18a34c82f25854dfeb727, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Avatar_Girl_Sword_Nilou_Mat_Dress
+    second: {fileID: 2100000, guid: a335bb6dd5bc7894bab59b5c532c0bf9, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Avatar_Girl_Sword_Nilou_Mat_Face
+    second: {fileID: 2100000, guid: fb5b89a0d4d8c8149b0a0cc02986123a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Avatar_Girl_Sword_Nilou_Mat_Hair
+    second: {fileID: 2100000, guid: 63c6016342bd0644f8b7955fe275cc44, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: miHoYoDiffuse
+    second: {fileID: 2100000, guid: 9701690cd19f0a144b1e93db31ebc009, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -40,6 +65,7 @@ ModelImporter:
     addColliders: 0
     useSRGBMaterialColor: 1
     sortHierarchyByName: 1
+    importPhysicalCameras: 1
     importVisibility: 1
     importBlendShapes: 1
     importCameras: 1
@@ -66,7 +92,7 @@ ModelImporter:
     secondaryUVMinLightmapResolution: 40
     secondaryUVMinObjectScale: 1
     secondaryUVPackMargin: 4
-    useFileScale: 1
+    useFileScale: 0
     strictVertexDataChecks: 0
   tangentSpace:
     normalSmoothAngle: 60

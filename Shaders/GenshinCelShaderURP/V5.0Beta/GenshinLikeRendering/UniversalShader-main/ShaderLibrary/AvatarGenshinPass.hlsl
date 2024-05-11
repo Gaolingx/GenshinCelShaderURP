@@ -53,12 +53,14 @@ float3 GetShadowRampColor(float4 lightmap, float NdotL, float atten)
     float ramp3 = _RampIndex3 * -0.1 + 1.05 - rampSampling;  //0.55
     float ramp4 = _RampIndex4 * -0.1 + 1.05 - rampSampling;  //0.85
     //分离lightmap.a各材质
+    float lightmapA1 = step(0.0, lightmap.a);  //0.0
     float lightmapA2 = step(0.25, lightmap.a);  //0.3
     float lightmapA3 = step(0.45, lightmap.a);  //0.5
     float lightmapA4 = step(0.65, lightmap.a);  //0.7
     float lightmapA5 = step(0.95, lightmap.a);  //1.0
     //重组lightmap.a
-    float rampV = ramp0;  //0.0
+    float rampV = 0;
+    rampV = lerp(rampV, ramp0, lightmapA1);  //0.0
     rampV = lerp(rampV, ramp1, lightmapA2);  //0.3
     rampV = lerp(rampV, ramp2, lightmapA3);  //0.5
     rampV = lerp(rampV, ramp3, lightmapA4);  //0.7
@@ -110,6 +112,8 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     float4 LightColor = float4(mainLight.color.rgb, 1);
     //获取主光源方向
     float3 lightDirectionWS = normalize(mainLight.direction);
+    //间接光
+    float3 indirectLightColor = CalculateGI(mainTexCol.rgb, ilmTexCol.g, input.SH.rgb, _IndirectLightIntensity, _IndirectLightUsage);
     //视线方向
     float3 viewDirectionWS = normalize(GetWorldSpaceViewDir(input.positionWS));
 
@@ -128,27 +132,25 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     float NoV = dot(normalize(normalWS), normalize(GetWorldSpaceViewDir(input.positionWS)));
     float NoL = dot(normalize(normalWS), normalize(mainLight.direction));
 
-//区分面部和身体的渲染    
-#if defined(_RENDERTYPE_BODY)
-        float emissionFactor = 1.0;
+    float emissionFactor = 1.0;
     #if defined(_MAINTEXALPHAUSE_EMISSION)
         emissionFactor = _EmissionScaler * mainTexCol.a;
     #elif defined(_MAINTEXALPHAUSE_FLICKER)
         emissionFactor = _EmissionScaler * mainTexCol.a * (0.5 * sin(_Time.y) + 0.5);
     #elif defined(_MAINTEXALPHAUSE_ALPHATEST)
-        clip(mainTexCol.a - _MainTexCutOff);
+        DoClipTestToTargetAlphaValue(mainTexCol.a, _MainTexCutOff);
         emissionFactor = 0;
     #else
         emissionFactor = 0;
     #endif
 
-    //间接光
-    float3 indirectLightColor = CalculateGI(mainTexCol.rgb, ilmTexCol.g, input.SH.rgb, _IndirectLightIntensity, _IndirectLightUsage);
+//区分面部和身体的渲染    
+#if defined(_RENDERTYPE_BODY)
 
     float remappedNoL = NoL + input.vertexColor.g;
 
-    half3 diffuseColor = 0;
     //Diffuse
+    half3 diffuseColor = 0;
     half3 rampTexCol = GetShadowRampColor(ilmTexCol, remappedNoL, mainLight.shadowAttenuation);
     half3 brightAreaColor = rampTexCol * _LightAreaColorTint.rgb;
     //以上获取的Shadow Color颜色对固有阴影的颜色处理不够深，所以通过ShadowColor进一步调色
@@ -178,7 +180,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     #endif
     
     //边缘光部分
-    float3 rimLightColor;
+    half3 rimLightColor;
 
     #if _RIM_LIGHTING_ON
         RimLightMaskData rimLightMaskData;
@@ -199,18 +201,19 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
         rimLightColor = 0;
     #endif
 
+    //判断emission是否开启
+    #if _EMISSION_ON != 1
+        emissionFactor = 0;
+    #endif
+    half3 emissionColor = lerp(_EmissionTintColor.rgb, mainTexCol.rgb, _EmissionMixBaseColorFac) * emissionFactor;
+
     //最终的合成
     float3 FinalDiffuse = 0;
     FinalDiffuse += indirectLightColor;
     FinalDiffuse += diffuseColor;
     FinalDiffuse += FinalSpecCol;
     FinalDiffuse += rimLightColor;
-
-    //判断emission是否开启
-    #if _EMISSION_ON != 1
-        emissionFactor = 0;
-    #endif
-    FinalDiffuse *= 1 + emissionFactor;
+    FinalDiffuse += emissionColor;
 
     float alpha = _Alpha;
 
@@ -220,12 +223,13 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
 
     return FinalColor;
     
-#else
+#elif defined(_RENDERTYPE_FACE)
 
     // 游戏模型的头骨骼是旋转过的
     float3 headDirWSUp = normalize(-UNITY_MATRIX_M._m00_m10_m20);
     float3 headDirWSRight = normalize(-UNITY_MATRIX_M._m02_m12_m22);
     float3 headDirWSForward = normalize(UNITY_MATRIX_M._m01_m11_m21);
+    
     float3 lightDirProj = normalize(lightDirectionWS - dot(lightDirectionWS, headDirWSUp) * headDirWSUp); // 做一次投影
     //光照在左脸的时候。左脸的uv采样左脸，右脸的uv采样右脸，而光照在右脸的时候，左脸的uv采样右脸，右脸的uv采样左脸，因为SDF贴图明暗变化在右脸
     bool isRight = dot(lightDirProj, headDirWSRight) > 0;
@@ -251,18 +255,17 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     half3 rampTexCol = GetShadowRampColor(ilmTexCol, remappedNoL, mainLight.shadowAttenuation);
     //half3 rampTexCol = mainTexCol.rgb;
 
-    float3 diffuseColor = 0;
+    half3 diffuseColor = 0;
     half3 brightAreaColor = rampTexCol.rgb * _LightAreaColorTint.rgb;
     half3 shadowAreaColor = rampTexCol.rgb * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);
 
     half3 ShadowColorTint = lerp(shadowAreaColor, brightAreaColor, brightAreaMask);
     diffuseColor = ShadowColorTint * mainTexCol.rgb;
-
-    //间接光
-    float3 indirectLightColor = CalculateGI(mainTexCol.rgb, ilmTexCol.g, input.SH.rgb, _IndirectLightIntensity, _IndirectLightUsage);
+    //遮罩贴图的rg通道区分受光照影响的区域和不受影响的区域
+    half3 faceDiffuseColor = lerp(mainTexCol.rgb, diffuseColor, ilmTexCol.r);
 
     //边缘光部分
-    float3 rimLightColor;
+    half3 rimLightColor;
     #if _RIM_LIGHTING_ON
         RimLightMaskData rimLightMaskData;
         rimLightMaskData.color = _RimColor.rgb;
@@ -282,11 +285,17 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
         rimLightColor = 0;
     #endif
 
+    //判断emission是否开启
+    #if _EMISSION_ON != 1
+        emissionFactor = 0;
+    #endif
+    half3 emissionColor = lerp(_EmissionTintColor.rgb, mainTexCol.rgb, _EmissionMixBaseColorFac) * emissionFactor;
+
     float3 FinalDiffuse = 0;
     FinalDiffuse += indirectLightColor;
-    //遮罩贴图的rg通道区分受光照影响的区域和不受影响的区域
-    FinalDiffuse += lerp(mainTexCol.rgb, diffuseColor, ilmTexCol.r);
+    FinalDiffuse += faceDiffuseColor;
     FinalDiffuse += rimLightColor;
+    FinalDiffuse += emissionColor;
 
     float alpha = _Alpha;
 
@@ -298,7 +307,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
 
 #endif
 
-    return float4(FinalDiffuse, 1.0);
+    return float4(1.0, 1.0, 1.0, 1.0);
 }
 
 #endif

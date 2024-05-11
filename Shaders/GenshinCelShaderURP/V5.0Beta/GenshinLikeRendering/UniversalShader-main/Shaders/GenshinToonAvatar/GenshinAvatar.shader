@@ -11,6 +11,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         [KeywordEnum(None, Flicker, Emission, AlphaTest)] _MainTexAlphaUse("Diffuse Texture Alpha Use", Float) = 0.0
         _Alpha("Alpha (Default 1)", Range(0, 1)) = 1
         _AlphaClip("Alpha clip (Default 0.5)", Range(0.0, 1.0)) = 0.5
+        _MainTexCutOff("Alpha clip (MainTex)", Range(0.0, 1.0)) = 0.5
 
         [Header(Main Lighting)]
         _MainTex("Diffuse Texture", 2D) = "white" { }
@@ -19,7 +20,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _BrightFac("Bright Factor", Float) = 0.99
         _GreyFac("Gray Factor", Float) = 1.08
         _DarkFac("Dark Factor", Float) = 0.55
-        _RampAOLerp("Shadow AO Lerp", Range(0.0, 1.0)) = 0.5
+        _RampAOLerp("Shadow AO Lerp", Range(0.0, 1.0)) = 1.0
 
         [Header(Indirect Lighting)]
         _IndirectLightFlattenNormal("Indirect light flatten normal (Default 0)", Range(0, 1)) = 0
@@ -71,7 +72,9 @@ Shader "GenshinCelShaderURP/V5.0Beta"
 
         [Header(Emission)]
         [Toggle(_EMISSION_ON)] _UseEmission("Use emission (Default NO)", Float) = 0
-        _EmissionScaler("Emission Scaler", Range(1.0, 10.0)) = 5.0
+        _EmissionMixBaseColorFac("Emission mix base color factor (Default 1)", Range(0, 1)) = 1
+        _EmissionTintColor("Emission tint color (Default white)", Color) = (1, 1, 1, 1)
+        _EmissionScaler("Emission Scaler", Range(1.0, 10.0)) = 1.0
 
         [Header(Outline)]
         [Toggle(_ENABLE_OUTLINE)] _EnableOutlineToggle("Enable Outline (Default YES)", Float) = 1

@@ -29,7 +29,8 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _IndirectLightUsage("Indirect light color usage (Default 0.5)", Range(0, 1)) = 0.5
 
         [Header(Face Settings)]
-        _FaceMap("Face SDF Texture", 2D) = "white" { }
+        _FaceShadowMap("Face SDF Texture", 2D) = "white" { }
+        _FaceMapTex("FaceMap Texture", 2D) = "white" { }
         _FaceShadowOffset("Face Shadow Offset", range(-1.0, 1.0)) = 0.0
         _FaceShadowTransitionSoftness("Face shadow transition softness (Default 0.05)", Range(0, 1)) = 0.05
 
@@ -78,20 +79,31 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _EmissionScaler("Emission Scaler", Range(1.0, 10.0)) = 1.0
 
         [Header(Outline)]
-        [Toggle(_ENABLE_OUTLINE)] _EnableOutlineToggle("Enable Outline (Default YES)", Float) = 1
-        [KeywordEnum(Normal, Tangent, UV2)] _OutlineNormalChannel("Outline Normal Channel", Float) = 0
-        [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color (Default NO)", Float) = 0
-        [ToggleUI] _IsFace("Use Clip Pos With ZOffset (face material)", Float) = 0
-        _OutlineZOffset("_OutlineZOffset (View Space)", Range(0, 1)) = 0.0001
-        _OutlineWidth("OutlineWidth (WS)(m)", Range(0, 0.01)) = 0.0035
-        _OutlineWidthMin("Outline Width Min (SS)(pixel)", Range(0, 10)) = 2
-        _OutlineWidthMax("Outline Width Max (SS)(pixel)", Range(0, 30)) = 30
-        _CustomOutlineCol("Custom Outline Color", Color) = (1.0, 1.0, 1.0, 1.0)
-        _OutlineColor1("Outline Color 1", Color) = (0.0, 0.0, 0.0, 1.0)
-        _OutlineColor2("Outline Color 2", Color) = (0.1, 0.1, 0.1, 1.0)
-        _OutlineColor3("Outline Color 3", Color) = (0.2, 0.2, 0.2, 1.0)
-        _OutlineColor4("Outline Color 4", Color) = (0.3, 0.3, 0.3, 1.0)
-        _OutlineColor5("Outline Color 5", Color) = (0.4, 0.4, 0.4, 1.0)
+        [Toggle] _EnableOutlineToggle("Enable Outline (Default YES)", Float) = 1
+        [HideInInspector] m_start_outlines("Outlines", Float) = 0
+        [Enum(None, 0, Normal, 1,  Tangent, 2)] _OutlineType ("Outline Type", Float) = 1.0
+        [Toggle] _FallbackOutlines ("Enable Static Outlines", Range(0.0, 1.0)) = 0
+        [Toggle] _UseFaceOutline ("Enable Face Outline", Float) = 0.0
+        _OutlineWidth ("Outline Width", Float) = 0.03
+        _Scale ("Outline Scale", Float) = 0.01
+        [Toggle] [HideInInspector] _UseClipPlane ("Use Clip Plane?", Range(0.0, 1.0)) = 0.0
+        [HideInInspector] _ClipPlane ("Clip Plane", Vector) = (0.0, 0.0, 0.0, 0.0)
+        // Outline Color
+        [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color", Float) = 0
+        [HideInInspector] m_start_outlinescolor("Outline Colors", Float) = 0
+        [Gamma] _OutlineColor1 ("Outline Color 1", Color) = (0.0, 0.0, 0.0, 1.0)
+        [Gamma] _OutlineColor2 ("Outline Color 2", Color) = (0.0, 0.0, 0.0, 1.0)
+        [Gamma] _OutlineColor3 ("Outline Color 3", Color) = (0.0, 0.0, 0.0, 1.0)
+        [Gamma] _OutlineColor4 ("Outline Color 4", Color) = (0.0, 0.0, 0.0, 1.0)
+        [Gamma] _OutlineColor5 ("Outline Color 5", Color) = (0.0, 0.0, 0.0, 1.0)
+        [HideInInspector] m_end_outlinescolor ("", Float) = 0
+        // Outline Offsets
+        [HideInInspector] m_start_outlinesoffset("Outline Offset & Adjustments", Float) = 0
+        _OutlineWidthAdjustScales ("Outline Width Adjust Scales", Vector) = (0.01, 0.245, 0.6, 0.0)
+        _OutlineWidthAdjustZs ("Outline Width Adjust Zs", Vector) = (0.001, 2.0, 6.0, 0.0)
+        _MaxOutlineZOffset ("Max Z-Offset", Float) = 1.0
+        [HideInInspector] m_end_outlinesoffset ("", Float) = 0
+        [HideInInspector] m_end_outlines ("", Float) = 0
 
         [Header(Debug)]
         _DebugValue01("Debug Value 0-1", Range(0.0, 1.0)) = 0.0
@@ -183,29 +195,10 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             HLSLPROGRAM
             #pragma vertex BackFaceOutlineVertex
             #pragma fragment BackFaceOutlineFragment
-            #pragma shader_feature _OUTLINENORMALCHANNEL_NORMAL _OUTLINENORMALCHANNEL_TANGENT _OUTLINENORMALCHANNEL_UV2
-            #pragma shader_feature_local _ENABLE_OUTLINE
             #pragma shader_feature_local _OUTLINE_CUSTOM_COLOR_ON
-            
-            #if _ENABLE_OUTLINE
-            
-                // all shader logic written inside this .hlsl, remember to write all #define BEFORE writing #include
-                #include "../../ShaderLibrary/AvatarGenshinOutlinePass.hlsl"
-            #else
-                struct Attributes {};
-                struct Varyings
-                {
-                    float4 positionCS : SV_POSITION;
-                };
-                Varyings BackFaceOutlineVertex(Attributes input)
-                {
-                    return (Varyings)0;
-                }
-                float4 BackFaceOutlineFragment(Varyings input) : SV_TARGET
-                {
-                    return 0;
-                }
-            #endif
+
+            // all shader logic written inside this .hlsl, remember to write all #define BEFORE writing #include
+            #include "../../ShaderLibrary/AvatarGenshinOutlinePass.hlsl"
 
             ENDHLSL
         }

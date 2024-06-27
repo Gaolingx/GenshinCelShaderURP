@@ -275,9 +275,9 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     //使用uv采样面部贴图的a通道
     float sdfValue = 0;
     #if defined(_USEFACELIGHTMAPCHANNEL_R)
-        sdfValue = SAMPLE_TEXTURE2D(_FaceMap, sampler_FaceMap, sdfUV).r;
+        sdfValue = SAMPLE_TEXTURE2D(_FaceShadowMap, sampler_FaceShadowMap, sdfUV).r;
     #else
-        sdfValue = SAMPLE_TEXTURE2D(_FaceMap, sampler_FaceMap, sdfUV).a;
+        sdfValue = SAMPLE_TEXTURE2D(_FaceShadowMap, sampler_FaceShadowMap, sdfUV).a;
     #endif
     sdfValue += _FaceShadowOffset;
     //dot(lightDir,headForward)的范围是[1,-1]映射到[0,1]

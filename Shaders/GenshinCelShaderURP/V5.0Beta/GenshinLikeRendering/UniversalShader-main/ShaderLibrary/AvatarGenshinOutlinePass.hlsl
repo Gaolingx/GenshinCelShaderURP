@@ -2,36 +2,35 @@
 #define CUSTOM_AVATAR_GENSHIN_OUTLINE_PASS_INCLUDED
 
 #include "../ShaderLibrary/AvatarGenshinInput.hlsl"
-#include "../ShaderLibrary/NiloZOffset.hlsl"
 
-struct CharOutlineAttributes
+struct vs_in
 {
-    float3 positionOS   : POSITION;
-    float3 normalOS     : NORMAL;
-    float4 tangentOS    : TANGENT;
-    float4 color        : COLOR;
-    float2 baseUV       : TEXCOORD0;
-    float2 addUV        : TEXCOORD1;
-    float2 packSmoothNormal : TEXCOORD2;
-};
+    float4 vertex     : POSITION;
+    float3 normal  : NORMAL;
+    float4 tangent : TANGENT;
+    float2 uv_0    : TEXCOORD0;
+    float2 uv_1    : TEXCOORD1;
+    float2 uv_2    : TEXCOORD2;
+    float2 uv_3    : TEXCOORD3;
+    float4 v_col   : COLOR0;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+}; 
 
-struct CharOutlineVaryings
+struct vs_out
 {
-    float4 positionCS : SV_POSITION;
-    float3 positionVS : TEXCOORD0;
-    float3 positionWS : TEXCOORD1;
-    float4 positionNDC : TEXCOORD2;
-    float2 baseUV : TEXCOORD3;
-    float2 addUV : TEXCOORD4;
-    half3 color : TEXCOORD5;
-    half3 normalWS : TEXCOORD6;
-    half3 tangentWS : TEXCOORD7;
-    half3 bitangentWS : TEXCOORD8;
-
-    half3 sh : TEXCOORD9;
-
-    float2 packSmoothNormal : TEXCOORD10;
-    float fogFactor : TEXCOORD11;
+    float4 pos       : SV_POSITION;
+    float3 normal    : NORMAL; // ws normals
+    float4 tangent   : TANGENT; // ws tangents
+    float4 uv_a      : TEXCOORD0; // uv0 and uv1
+    float4 uv_b      : TEXCOORD1; // uv2 and uv3
+    float3 view      : TEXCOORD2; // view vector
+    float4 ws_pos    : TEXCOORD3; // world space position
+    float4 ss_pos    : TEXCOORD4; // screen space position
+    float3 parallax  : TEXCOORD5;
+    float4 light_pos : TEXCOORD6;
+    float4 v_col     : COLOR0; // vertex color 
+    float fogFactor  : TEXCOORD7;
+    UNITY_VERTEX_OUTPUT_STEREO
 };
 
 void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold) 
@@ -39,88 +38,93 @@ void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold)
     clip(alpha - alphaTestThreshold);
 }
 
-float3 GetSmoothNormalWS(CharOutlineAttributes input)
+vs_out BackFaceOutlineVertex(vs_in v)
 {
-    float3 smoothNormalOS = input.normalOS;
-    
-    #ifdef _OUTLINENORMALCHANNEL_NORMAL
-        smoothNormalOS = input.normalOS;
-    #elif _OUTLINENORMALCHANNEL_TANGENT
-        smoothNormalOS = input.tangentOS.xyz;
-    #elif _OUTLINENORMALCHANNEL_UV2
-        float3 normalOS = normalize(input.normalOS);
-        float3 tangentOS = normalize(input.tangentOS.xyz);
-        float3 bitangentOS = normalize(cross(normalOS, tangentOS) * (input.tangentOS.w * GetOddNegativeScale()));
-        float3 smoothNormalTS = UnpackNormalOctQuadEncode(input.packSmoothNormal);
-        smoothNormalOS = mul(smoothNormalTS, float3x3(tangentOS, bitangentOS, normalOS));
-    #endif
+    VertexPositionInputs vertexPositionInput = GetVertexPositionInputs(v.vertex);
+    VertexNormalInputs normalInput = GetVertexNormalInputs(v.normal, v.tangent);
 
-    return TransformObjectToWorldNormal(smoothNormalOS);
+    vs_out o = (vs_out)0.0f; // cast all output values to zero to prevent potential errors
+    if(_OutlineType ==  0.0f || _EnableOutlineToggle == 0.0f)
+    {
+        vs_out o = (vs_out)0.0f;
+    }
+    else
+    {
+        float3 outline_normal = (_OutlineType == 1.0) ? v.normal : v.tangent.xyz;
+        float4 wv_pos = mul(UNITY_MATRIX_MV, v.vertex);
+        float3 view = _WorldSpaceCameraPos.xyz - (float3)mul(v.vertex.xyz, unity_ObjectToWorld);
+        o.view = normalize(view);
+        float3 ws_normal = mul(outline_normal, (float3x3)unity_ObjectToWorld);
+
+        outline_normal = mul((float3x3)UNITY_MATRIX_MV, outline_normal);
+        outline_normal.z = 0.01f;
+        outline_normal.xy = normalize(outline_normal.xyz).xy;
+
+        if(!_FallbackOutlines)
+        {
+            float fov_matrix = unity_CameraProjection[1].y;
+
+            float fov = 2.414f / fov_matrix; // may need to come back in and change this back to 1.0f
+            // can't remember in what vrchat mode this was messing up 
+
+            float depth = -wv_pos.z * fov;
+
+            float2 adjs = (depth <  _OutlineWidthAdjustZs.y) ? _OutlineWidthAdjustZs.xy : _OutlineWidthAdjustZs.yz; 
+            float2 scales = (depth <  _OutlineWidthAdjustZs.y) ? _OutlineWidthAdjustScales.xy : _OutlineWidthAdjustScales.yz; 
+            
+            float z_scale = depth + -(adjs.x);
+            float2 z_something = float2((-adjs.x) + adjs.y, (-scales.x) + scales.y);
+            z_something.x = max(z_something.x, 0.001f);
+            z_scale = z_scale / z_something.x;
+            z_scale = saturate(z_scale);
+            z_scale = z_scale * z_something.y + scales.x;
+
+            // the next 5 or so lines could be written in one line like the above 
+            float outline_scale = (_OutlineWidth * 1.5f) * z_scale;
+            outline_scale = outline_scale * 100.0f;
+            outline_scale = outline_scale * _Scale;
+            outline_scale = outline_scale * 0.414f;
+            outline_scale = outline_scale * v.v_col.w;
+            if(_UseFaceOutline) outline_scale = outline_scale * _FaceMapTex.SampleLevel(sampler_FaceMapTex, v.uv_0.xy, 0.0f).z;
+
+            float offset_depth = saturate(1.0f - depth);
+            float max_offset = lerp(_MaxOutlineZOffset * 0.1, _MaxOutlineZOffset, offset_depth);
+
+            float3 z_offset = (wv_pos.xyz) * (float3)max_offset * (float3)_Scale;
+            // the above version of the line causes a floating point division by zero warning in unity even though it didnt used to do that
+            // but it probably has something to do with the instancing support v added
+
+            float blue = v.v_col.z + -0.5f; // never trust this fucking line
+            // it always breaks things
+
+            o.pos = wv_pos;
+            o.pos.xyz = (o.pos.xyz + (z_offset)) + (outline_normal.xyz * outline_scale);
+        }
+        else
+        {
+            o.pos = wv_pos;
+            o.pos.xyz = o.pos.xyz + (outline_normal.xyz * (_OutlineWidth * 100.0f * _Scale * 0.414f * v.v_col.w));
+        }
+
+        o.ws_pos = o.pos;
+        
+        o.pos = mul(UNITY_MATRIX_P, o.pos);
+        o.ss_pos = ComputeScreenPos(o.pos);
+        o.normal = normalize(ws_normal);
+        o.uv_a.xy = v.uv_0;
+        o.uv_a.zw = v.uv_1;
+        o.v_col = v.v_col;
+    }
+
+    o.fogFactor = ComputeFogFactor(vertexPositionInput.positionCS.z);
+
+    return o;
 }
 
-float CalculateExtendWidthWS(float3 positionWS, float3 extendVectorWS, float extendWS, float minExtendSS, float maxExtendSS)
-{
-    float4 positionCS = TransformWorldToHClip(positionWS);
-    float4 extendPositionCS = TransformWorldToHClip(positionWS + extendVectorWS * extendWS);
-
-    float2 delta = extendPositionCS.xy / extendPositionCS.w - positionCS.xy / positionCS.w;
-    delta *= GetScaledScreenParams().xy / GetScaledScreenParams().y * 1080.0f;
-
-    const float extendLen = length(delta);
-    float width = extendWS * min(1.0, maxExtendSS / extendLen) * max(1.0, minExtendSS / extendLen);
-
-    return width;
-}
-
-float3 ExtendOutline(float3 positionWS, float3 smoothNormalWS, float width, float widthMin, float widthMax)
-{
-    float offsetLen = CalculateExtendWidthWS(positionWS, smoothNormalWS, width, widthMin, widthMax);
-
-    return positionWS + smoothNormalWS * offsetLen;
-}
-
-
-CharOutlineVaryings BackFaceOutlineVertex(CharOutlineAttributes input)
-{
-    VertexPositionInputs vertexPositionInput = GetVertexPositionInputs(input.positionOS);
-    VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
-
-    float3 smoothNormalWS = GetSmoothNormalWS(input);
-    float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
-
-    float outlineWidth = input.color.a;
-    
-    positionWS = ExtendOutline(positionWS, smoothNormalWS,
-        _OutlineWidth * outlineWidth, _OutlineWidthMin * outlineWidth, _OutlineWidthMax * outlineWidth);
-
-    float3 positionVS = TransformWorldToView(positionWS);
-    float4 positionCS = TransformWorldToHClip(positionWS);
-
-    positionCS = NiloGetNewClipPosWithZOffset(positionCS, _OutlineZOffset + 0.03 * _IsFace);
-
-    CharOutlineVaryings output = (CharOutlineVaryings)0;
-    output.positionCS = positionCS;
-    output.positionVS = positionVS;
-    output.positionWS = positionWS;
-    //output.positionNDC = positionNDC;
-    output.baseUV = input.baseUV;
-    output.color = input.color.rgb;
-    output.normalWS = normalInput.normalWS;
-    output.tangentWS = normalInput.tangentWS;
-    output.bitangentWS = normalInput.bitangentWS;
-
-    output.sh = 0;
-    output.packSmoothNormal = input.packSmoothNormal;
-
-    output.fogFactor = ComputeFogFactor(vertexPositionInput.positionCS.z);
-
-    return output;
-}
-
-half4 BackFaceOutlineFragment(CharOutlineVaryings input) : SV_Target
+half4 BackFaceOutlineFragment(vs_out input) : SV_Target
 {
     //根据ilmTexture的五个分组区分出五个不同颜色的描边区域
-    half outlineColorMask = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.baseUV).a;
+    half outlineColorMask = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv_a).a;
     half areaMask1 = step(0.003, outlineColorMask) - step(0.35, outlineColorMask);
     half areaMask2 = step(0.35, outlineColorMask) - step(0.55, outlineColorMask);
     half areaMask3 = step(0.55, outlineColorMask) - step(0.75, outlineColorMask);

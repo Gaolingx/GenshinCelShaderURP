@@ -18,8 +18,10 @@ TEXTURE2D(_MainTex);
 SAMPLER(sampler_MainTex);
 TEXTURE2D(_ilmTex);
 SAMPLER(sampler_ilmTex);
-TEXTURE2D(_FaceMap);
-SAMPLER(sampler_FaceMap);
+TEXTURE2D(_FaceShadowMap);
+SAMPLER(sampler_FaceShadowMap);
+TEXTURE2D(_FaceMapTex);
+SAMPLER(sampler_FaceMapTex);
 TEXTURE2D(_NormalMap);
 SAMPLER(sampler_NormalMap);
 TEXTURE2D(_RampTex);
@@ -94,17 +96,21 @@ float _RimDark;
 float _RimEdgeSoftness;
 
 //Outline
-float _IsFace;
-float _OutlineZOffset;
-half4 _CustomOutlineCol;
-half4 _OutlineColor1;
-half4 _OutlineColor2;
-half4 _OutlineColor3;
-half4 _OutlineColor4;
-half4 _OutlineColor5;
+float _EnableOutlineToggle;
+float  _OutlineType;
+float _FallbackOutlines;
+float _UseFaceOutline;
 float _OutlineWidth;
-float _OutlineWidthMin;
-float _OutlineWidthMax;
+float _OutlineCorrectionWidth;
+float _Scale;
+float4 _OutlineColor1;
+float4 _OutlineColor2;
+float4 _OutlineColor3;
+float4 _OutlineColor4;
+float4 _OutlineColor5;
+float4 _OutlineWidthAdjustScales;
+float4 _OutlineWidthAdjustZs;
+float  _MaxOutlineZOffset;
 
 float _DebugValue01;
 CBUFFER_END

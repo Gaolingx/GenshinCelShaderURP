@@ -174,7 +174,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     #if _NORMAL_MAP_ON
         float3x3 tangentToWorld = float3x3(input.tangentWS, input.bitangentWS, input.normalWS);
         float3 normalTS = UnpackNormal(SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, input.uv));
-        float3 normalFactor = float3(_BumpFactor, _BumpFactor, 1);
+        float3 normalFactor = float3(_BumpScale, _BumpScale, 1);
         float3 normal = normalize(normalTS * normalFactor);
         float3 normalWS = TransformTangentToWorld(normal, tangentToWorld, true);
         input.normalWS = normalWS;

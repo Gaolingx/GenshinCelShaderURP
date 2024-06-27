@@ -59,7 +59,7 @@ float _IndirectLightIntensity;
 float _IndirectLightUsage;
 
 //NormalMap
-float _BumpFactor;
+float _BumpScale;
 
 //Ramp
 float _RampIndex0;

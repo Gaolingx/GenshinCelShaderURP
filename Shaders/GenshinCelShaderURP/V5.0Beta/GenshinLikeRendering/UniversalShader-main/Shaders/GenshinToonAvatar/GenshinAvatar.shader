@@ -57,9 +57,9 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         [HideInInspector] m_start_reflections("Reflections", Float) = 0
         [HideInInspector] m_start_metallics("Metallics", Int) = 0
         [Toggle] _MetalMaterial ("Enable Metallic", Range(0.0, 1.0)) = 1.0
-        _MTMap("Metallic Matcap",2D)= "white"{ }
+        _MTMap("Metallic Matcap", 2D)= "white"{ }
         [Toggle] _MTUseSpecularRamp ("Enable Metal Specular Ramp", Float) = 0.0
-        _MTSpecularRamp("Specular Ramp",2D)= "white"{ }
+        _MTSpecularRamp("Specular Ramp", 2D)= "white"{ }
         _MTMapBrightness ("Metallic Matcap Brightness", Float) = 3.0
         _MTShininess ("Metallic Specular Shininess", Float) = 90.0
         _MTSpecularScale ("Metallic Specular Scale", Float) = 15.0 
@@ -96,7 +96,6 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         [Header(Rim Lighting)]
         [Toggle(_RIM_LIGHTING_ON)] _UseRimLight("Use Rim light (Default YES)", Float) = 1
         [HideInInspector] m_start_rimlight("Rim Light", Float) = 0
-        [Toggle] _UseRimLight ("Enable Rim Light", Float) = 1
         _RimThreshold ("Rim Threshold", Range(0.0, 1.0)) = 0.5
         _RimLightIntensity ("Rim Light Intensity", Float) = 0.25
         _RimLightThickness ("Rim Light Thickness", Range(0.0, 10.0)) = 1.0

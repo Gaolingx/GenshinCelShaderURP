@@ -107,6 +107,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _RimColor2 (" Rim Light Color 3", Color)  = (1, 1, 1, 1)
         _RimColor3 (" Rim Light Color 4", Color)  = (1, 1, 1, 1)
         _RimColor4 (" Rim Light Color 5", Color) = (1, 1, 1, 1)
+        _RimColor5 (" Rim Light Color 6", Color) = (1, 1, 1, 1)
         [HideInInspector] m_end_lightingrimcolor("", Float) = 0
         [HideInInspector] m_end_rimlight ("", Float) = 0
         [HideInInspector] g_end_light("", Int) = 0

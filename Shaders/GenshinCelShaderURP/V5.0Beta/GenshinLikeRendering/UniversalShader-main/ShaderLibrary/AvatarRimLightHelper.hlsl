@@ -109,16 +109,13 @@ float3 rimlighting(float4 sspos, float3 normal, float4 wspos, float3 light, floa
 
     depth_diff = lerp(depth_diff, 0.0f, saturate(step(depth_diff, _RimThreshold)));
 
-
-    half outlineColorMask = material_id;
-    half areaMask1 = step(0.003, outlineColorMask) - step(0.35, outlineColorMask);
-    half areaMask2 = step(0.35, outlineColorMask) - step(0.55, outlineColorMask);
-    half areaMask3 = step(0.55, outlineColorMask) - step(0.75, outlineColorMask);
-    half areaMask4 = step(0.75, outlineColorMask) - step(0.95, outlineColorMask);
-    half areaMask5 = step(0.95, outlineColorMask);
+    float4 rim_colors[5] = 
+    {
+        _RimColor1, _RimColor2, _RimColor3, _RimColor4, _RimColor5
+    };
 
     // get rim light color 
-    float3 rim_color = ((1.0 - (areaMask1 + areaMask2 + areaMask3 + areaMask4 + areaMask5)) * _RimColor1.rgb + areaMask2 * _RimColor2.rgb + areaMask3 * _RimColor3.rgb + areaMask4 * _RimColor4.rgb + areaMask5 * _RimColor5.rgb) * _RimColor;
+    float3 rim_color = rim_colors[material_id - 1] * _RimColor;
     rim_color = rim_color * cs_ndotv;
 
     depth_diff = depth_diff * _RimLightIntensity;

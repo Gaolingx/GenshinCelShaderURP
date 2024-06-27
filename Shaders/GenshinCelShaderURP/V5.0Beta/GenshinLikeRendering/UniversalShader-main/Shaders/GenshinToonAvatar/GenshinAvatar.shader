@@ -54,13 +54,44 @@ Shader "GenshinCelShaderURP/V5.0Beta"
 
         [Header(Specular)]
         [Toggle(_SPECULAR_ON)] _EnableSpecular ("Enable Specular (Default YES)", Float) = 1
-        _MetalTex("Metal Texture", 2D) = "Gray" { }
-        _MTMapBrightness("Metal Map Brightness", Range(0.0, 10.0)) = 3.0
-        _MTShininess("Metal Shininess", Range(0.0, 100.0)) = 90.0
-        _MTSpecularScale("Metal Specular Scale", Range(0.0, 100.0)) = 15.0
-        _Shininess("Shininess", Range(5.0, 20.0)) = 10.0
-        _NonMetalSpecArea("Non-metal Spcular Area", Range(0.0, 1.0)) = 0.0
-        _SpecMulti("Specular Multiplier", Range(0.0, 10)) = 0.2
+        [HideInInspector] m_start_reflections("Reflections", Float) = 0
+        [HideInInspector] m_start_metallics("Metallics", Int) = 0
+        [Toggle] _MetalMaterial ("Enable Metallic", Range(0.0, 1.0)) = 1.0
+        _MTMap("Metallic Matcap",2D)= "white"{ }
+        [Toggle] _MTUseSpecularRamp ("Enable Metal Specular Ramp", Float) = 0.0
+        _MTSpecularRamp("Specular Ramp",2D)= "white"{ }
+        _MTMapBrightness ("Metallic Matcap Brightness", Float) = 3.0
+        _MTShininess ("Metallic Specular Shininess", Float) = 90.0
+        _MTSpecularScale ("Metallic Specular Scale", Float) = 15.0 
+        _MTMapTileScale ("Metallic Matcap Tile Scale", Range(0.0, 2.0)) = 1.0
+        _MTSpecularAttenInShadow ("Metallic Specular Power in Shadow", Range(0.0, 1.0)) = 0.2
+        _MTSharpLayerOffset ("Metallic Sharp Layer Offset", Range(0.001, 1.0)) = 1.0
+        // Metal Color
+        [HideInInspector] m_start_metallicscolor("Metallic Colors", Int) = 0
+        _MTMapDarkColor ("Metallic Matcap Dark Color", Color) = (0.51, 0.3, 0.19, 1.0)
+        _MTMapLightColor ("Metallic Matcap Light Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        _MTShadowMultiColor ("Metallic Matcap Shadow Multiply Color", Color) = (0.78, 0.77, 0.82, 1.0)
+        _MTSpecularColor ("Metallic Specular Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        _MTSharpLayerColor ("Metallic Sharp Layer Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        [HideInInspector] m_end_metallicscolor ("", Int) = 0
+        [HideInInspector] m_end_metallics("", Int) = 0
+        // Specular 
+        [HideInInspector] m_start_specular("Specular Reflections", Int) = 0
+        [Toggle] _SpecularHighlights ("Enable Specular", Float) = 0.0
+        [HideInInspector] [Toggle] _UseToonSpecular ("Enable Specular", Float) = 0.0
+        _Shininess ("Shininess 1", Float) = 10
+        _Shininess2 ("Shininess 2", Float) = 10
+        _Shininess3 ("Shininess 3", Float) = 10
+        _Shininess4 ("Shininess 4", Float) = 10
+        _Shininess5 ("Shininess 5", Float) = 10
+        _SpecMulti ("Specular Multiplier 1", Float) = 0.1
+        _SpecMulti2 ("Specular Multiplier 2", Float) = 0.1
+        _SpecMulti3 ("Specular Multiplier 3", Float) = 0.1
+        _SpecMulti4 ("Specular Multiplier 4", Float) = 0.1
+        _SpecMulti5 ("Specular Multiplier 5", Float) = 0.1
+        _SpecularColor ("Specular Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        [HideInInspector] m_end_specular("", Int) = 0
+        [HideInInspector] m_end_reflections ("", Float) = 0
 
         [Header(Rim Lighting)]
         [Toggle(_RIM_LIGHTING_ON)] _UseRimLight("Use Rim light (Default YES)", Float) = 1
@@ -100,11 +131,11 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         // Outline Color
         [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color", Float) = 0
         [HideInInspector] m_start_outlinescolor("Outline Colors", Float) = 0
-        [Gamma] _OutlineColor1 ("Outline Color 1", Color) = (0.0, 0.0, 0.0, 1.0)
-        [Gamma] _OutlineColor2 ("Outline Color 2", Color) = (0.0, 0.0, 0.0, 1.0)
-        [Gamma] _OutlineColor3 ("Outline Color 3", Color) = (0.0, 0.0, 0.0, 1.0)
-        [Gamma] _OutlineColor4 ("Outline Color 4", Color) = (0.0, 0.0, 0.0, 1.0)
-        [Gamma] _OutlineColor5 ("Outline Color 5", Color) = (0.0, 0.0, 0.0, 1.0)
+        _OutlineColor1 ("Outline Color 1", Color) = (0.0, 0.0, 0.0, 1.0)
+        _OutlineColor2 ("Outline Color 2", Color) = (0.0, 0.0, 0.0, 1.0)
+        _OutlineColor3 ("Outline Color 3", Color) = (0.0, 0.0, 0.0, 1.0)
+        _OutlineColor4 ("Outline Color 4", Color) = (0.0, 0.0, 0.0, 1.0)
+        _OutlineColor5 ("Outline Color 5", Color) = (0.0, 0.0, 0.0, 1.0)
         [HideInInspector] m_end_outlinescolor ("", Float) = 0
         // Outline Offsets
         [HideInInspector] m_start_outlinesoffset("Outline Offset & Adjustments", Float) = 0

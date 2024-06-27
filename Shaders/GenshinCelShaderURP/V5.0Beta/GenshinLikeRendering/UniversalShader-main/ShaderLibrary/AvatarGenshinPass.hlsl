@@ -3,6 +3,7 @@
 
 #include "../ShaderLibrary/AvatarGenshinInput.hlsl"
 #include "../ShaderLibrary/AvatarRimLightHelper.hlsl"
+#include "../ShaderLibrary/AvatarSpecularHelper.hlsl"
 
 struct Attributes
 {
@@ -97,6 +98,20 @@ float3 GetShadowRampColor(float4 lightmap, float NdotL, float shadowAttenuation)
     float3 rampCol = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, float2(halfLambert, rampV)).rgb;
     float3 shadowRamp = lerp(rampCol, halfLambert, brightMask);  //遮罩亮面
     return shadowRamp;
+}
+
+float materialID(float alpha)
+{
+    float region = alpha;
+
+    float material = 1.0f;
+
+    material = ((region >= 0.8f)) ? 2.0f : 1.0f;
+    material = ((region >= 0.4f && region <= 0.6f)) ? 3.0f : material;
+    material = ((region >= 0.2f && region <= 0.4f)) ? 4.0f : material;
+    material = ((region >= 0.6f && region <= 0.8f)) ? 5.0f : material;
+
+    return material;
 }
 
 void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold) 
@@ -197,31 +212,27 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     half3 ShadowColorTint = lerp(darkShadowColor.rgb, brightAreaColor, _BrightAreaShadowFac);
     diffuseColor = ShadowColorTint * mainTexCol.rgb;
 
+    float material_id = materialID(ilmTexCol.w);
     half3 FinalSpecCol = 0;
     #if _SPECULAR_ON
-        //Specular
-        float3 halfDirectionWS = normalize(viewDirectionWS + lightDirectionWS);
-        float hdotl = max(dot(halfDirectionWS, input.normalWS.xyz), 0.0);
-        //非金属高光
-        float nonMetalSpecular = step(1.0 - 0.5 * _NonMetalSpecArea, pow(hdotl, _Shininess)) * ilmTexCol.r;
-        //金属高光
-        //ilmTexture中，r通道控制Blinn-Phong高光的系数，b通道控制Metal Specular的范围
-        float2 normalCS = TransformWorldToHClipDir(input.normalWS.xyz).xy * 0.5 + float2(0.5, 0.5);
-        float metalTexCol = saturate(SAMPLE_TEXTURE2D(_MetalTex, sampler_MetalTex, normalCS)).r * _MTMapBrightness;
-        float metalBlinnPhongSpecular = pow(hdotl, _MTShininess) * ilmTexCol.r;
-        float metalSpecular = ilmTexCol.b * metalBlinnPhongSpecular * metalTexCol;
-        half3 specularColor = (metalSpecular * _MTSpecularScale + nonMetalSpecular) * diffuseColor;
-        
-        FinalSpecCol = specularColor * _SpecMulti * shadowAttenuation;
+        float3 half_vector = normalize(viewDirectionWS + mainLight.direction);
+        float ndoth = dot(normalWS, half_vector);
+        // SPECULAR : 
+        float3 specular = (float3)0.0f;
+        if(_SpecularHighlights) specular_color(ndoth, ShadowColorTint, ilmTexCol.x, ilmTexCol.z, material_id, specular);
+        if(ilmTexCol.x > 0.90f) specular = 0.0f; // making sure the specular doesnt bleed into the metal area
+        // METALIC :
+        if(_MetalMaterial) metalics(ShadowColorTint, normalWS, ndoth, ilmTexCol.x, isFrontFace, diffuseColor.xyz);
+
+        FinalSpecCol = specular;
     #else
         FinalSpecCol = 0;
     #endif
     
     //边缘光部分
     half3 rimLightColor;
-
     #if _RIM_LIGHTING_ON
-        rimLightColor = GetRimLight(input.ss_pos, normalWS, input.positionCS, LightColor.rgb, ilmTexCol.a, diffuseColor, viewDirectionWS);
+        rimLightColor = GetRimLight(input.ss_pos, normalWS, input.positionCS, LightColor.rgb, material_id, diffuseColor, viewDirectionWS);
     #else
         rimLightColor = 0;
     #endif
@@ -289,10 +300,12 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     //遮罩贴图的rg通道区分受光照影响的区域和不受影响的区域
     half3 faceDiffuseColor = lerp(mainTexCol.rgb, diffuseColor, ilmTexCol.r);
 
+    float material_id = materialID(ilmTexCol.w);
+
     //边缘光部分
     half3 rimLightColor;
     #if _RIM_LIGHTING_ON
-        rimLightColor = GetRimLight(input.ss_pos, normalWS, input.positionCS, LightColor.rgb, ilmTexCol.a, diffuseColor, viewDirectionWS);
+        rimLightColor = GetRimLight(input.ss_pos, normalWS, input.positionCS, LightColor.rgb, material_id, diffuseColor, viewDirectionWS);
     #else
         rimLightColor = 0;
     #endif

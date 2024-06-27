@@ -26,8 +26,10 @@ TEXTURE2D(_NormalMap);
 SAMPLER(sampler_NormalMap);
 TEXTURE2D(_RampTex);
 SAMPLER(sampler_RampTex);
-TEXTURE2D(_MetalTex);
-SAMPLER(sampler_MetalTex);
+TEXTURE2D(_MTMap);
+SAMPLER(sampler_MTMap);
+TEXTURE2D(_MTSpecularRamp);
+SAMPLER(sampler_MTSpecularRamp);
 
 #if defined(_USESMOOTHNORMAL_NORMALTEXTURE)
 TEXTURE2D(_SmoothNormalTex);
@@ -78,13 +80,35 @@ half4 _CoolDarkShadowColor;
 float _BrightAreaShadowFac;
 float _FaceShadowTransitionSoftness;
 
-//Specular
+// metal properties : 
+float _MetalMaterial;
+float _MTUseSpecularRamp;
+float _MTMapTileScale;
 float _MTMapBrightness;
 float _MTShininess;
 float _MTSpecularScale;
+float _MTSpecularAttenInShadow;
+float _MTSharpLayerOffset;
+float4 _MTMapDarkColor;
+float4 _MTMapLightColor;
+float4 _MTShadowMultiColor;
+float4 _MTSpecularColor;
+float4 _MTSharpLayerColor;
+
+// specular properties :
+float _SpecularHighlights;
+float _UseToonSpecular;
 float _Shininess;
-float _NonMetalSpecArea;
+float _Shininess2;
+float _Shininess3;
+float _Shininess4;
+float _Shininess5;
 float _SpecMulti;
+float _SpecMulti2;
+float _SpecMulti3;
+float _SpecMulti4;
+float _SpecMulti5;
+float4 _SpecularColor;
 
 //RimLight
 float _RimLightThickness;

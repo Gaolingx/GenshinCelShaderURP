@@ -33,6 +33,20 @@ struct vs_out
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
+float materialID(float alpha)
+{
+    float region = alpha;
+
+    float material = 1.0f;
+
+    material = ((region >= 0.8f)) ? 2.0f : 1.0f;
+    material = ((region >= 0.4f && region <= 0.6f)) ? 3.0f : material;
+    material = ((region >= 0.2f && region <= 0.4f)) ? 4.0f : material;
+    material = ((region >= 0.6f && region <= 0.8f)) ? 5.0f : material;
+
+    return material;
+}
+
 void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold) 
 {
     clip(alpha - alphaTestThreshold);
@@ -125,17 +139,18 @@ half4 BackFaceOutlineFragment(vs_out input) : SV_Target
 {
     //根据ilmTexture的五个分组区分出五个不同颜色的描边区域
     half outlineColorMask = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv_a).a;
-    half areaMask1 = step(0.003, outlineColorMask) - step(0.35, outlineColorMask);
-    half areaMask2 = step(0.35, outlineColorMask) - step(0.55, outlineColorMask);
-    half areaMask3 = step(0.55, outlineColorMask) - step(0.75, outlineColorMask);
-    half areaMask4 = step(0.75, outlineColorMask) - step(0.95, outlineColorMask);
-    half areaMask5 = step(0.95, outlineColorMask);
+    float material_id = materialID(outlineColorMask);
+
+    float4 outline_colors[5] = 
+    {
+        _OutlineColor1, _OutlineColor2, _OutlineColor3, _OutlineColor4, _OutlineColor5
+    };
 
     half3 finalOutlineColor = 0;
     #if _OUTLINE_CUSTOM_COLOR_ON
         finalOutlineColor = _CustomOutlineCol.rgb;
     #else
-        finalOutlineColor = (1.0 - (areaMask1 + areaMask2 + areaMask3 + areaMask4 + areaMask5)) * _OutlineColor1.rgb + areaMask2 * _OutlineColor2.rgb + areaMask3 * _OutlineColor3.rgb + areaMask4 * _OutlineColor4.rgb + areaMask5 * _OutlineColor5.rgb;
+        finalOutlineColor = outline_colors[material_id - 1].xyz;
     #endif
     
     float alpha = _Alpha;

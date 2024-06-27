@@ -23,6 +23,7 @@ struct Varyings
     float3 bitangentWS : TEXCOORD2;
     float3 tangentWS : TEXCOORD3;
     float3 SH : TEXCOORD4;
+    float4 ss_pos    : TEXCOORD5;
     float4 vertexColor : COLOR;
 };
 
@@ -123,6 +124,8 @@ Varyings GenshinStyleVertex(Attributes input)
     // 间接光 with 球谐函数
     output.SH = SampleSH(lerp(vertexNormalInputs.normalWS, float3(0, 0, 0), _IndirectLightFlattenNormal));
 
+    output.ss_pos = ComputeScreenPos(output.positionCS);
+
     return output;
 }
 
@@ -218,20 +221,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     half3 rimLightColor;
 
     #if _RIM_LIGHTING_ON
-        RimLightMaskData rimLightMaskData;
-        rimLightMaskData.color = _RimColor.rgb;
-        rimLightMaskData.width = _RimWidth;
-        rimLightMaskData.edgeSoftness = _RimEdgeSoftness;
-        rimLightMaskData.modelScale = _ModelScale;
-        rimLightMaskData.ditherAlpha = 1;
-
-        RimLightData rimLightData;
-        rimLightData.darkenValue = _RimDark;
-        rimLightData.intensityFrontFace = _RimIntensity;
-        rimLightData.intensityBackFace = _RimIntensityBackFace;
-
-        float3 rimLightMask = GetRimLightMask(rimLightMaskData, normalWS, viewDirectionWS, NoV, input.positionCS, float4(1, 1, 1, 1));
-        rimLightColor = GetRimLight(rimLightData, rimLightMask, NoL, mainLight, isFrontFace);
+        rimLightColor = GetRimLight(input.ss_pos, normalWS, input.positionCS, LightColor.rgb, ilmTexCol.a, diffuseColor, viewDirectionWS);
     #else
         rimLightColor = 0;
     #endif
@@ -302,20 +292,7 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     //边缘光部分
     half3 rimLightColor;
     #if _RIM_LIGHTING_ON
-        RimLightMaskData rimLightMaskData;
-        rimLightMaskData.color = _RimColor.rgb;
-        rimLightMaskData.width = _RimWidth;
-        rimLightMaskData.edgeSoftness = _RimEdgeSoftness;
-        rimLightMaskData.modelScale = _ModelScale;
-        rimLightMaskData.ditherAlpha = 1;
-
-        RimLightData rimLightData;
-        rimLightData.darkenValue = _RimDark;
-        rimLightData.intensityFrontFace = _RimIntensity;
-        rimLightData.intensityBackFace = _RimIntensityBackFace;
-
-        float3 rimLightMask = GetRimLightMask(rimLightMaskData, normalWS, viewDirectionWS, NoV, input.positionCS, float4(1, 1, 1, 1));
-        rimLightColor = GetRimLight(rimLightData, rimLightMask, NoL, mainLight, isFrontFace);
+        rimLightColor = GetRimLight(input.ss_pos, normalWS, input.positionCS, LightColor.rgb, ilmTexCol.a, diffuseColor, viewDirectionWS);
     #else
         rimLightColor = 0;
     #endif

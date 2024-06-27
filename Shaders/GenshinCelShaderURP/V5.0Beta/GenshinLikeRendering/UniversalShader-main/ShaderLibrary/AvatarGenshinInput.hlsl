@@ -87,13 +87,15 @@ float _NonMetalSpecArea;
 float _SpecMulti;
 
 //RimLight
-float _ModelScale;
-float _RimIntensity;
-float _RimIntensityBackFace;
+float _RimLightThickness;
+float _RimLightIntensity;
+float _RimThreshold;
 float4 _RimColor;
-float _RimWidth;
-float _RimDark;
-float _RimEdgeSoftness;
+float4 _RimColor1;
+float4 _RimColor2;
+float4 _RimColor3;
+float4 _RimColor4;
+float4 _RimColor5;
 
 //Outline
 float _EnableOutlineToggle;

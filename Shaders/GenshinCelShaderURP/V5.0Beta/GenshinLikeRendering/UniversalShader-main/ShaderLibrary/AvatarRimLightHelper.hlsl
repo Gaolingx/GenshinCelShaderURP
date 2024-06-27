@@ -5,92 +5,137 @@
 //                      Lighting Functions                                   //
 ///////////////////////////////////////////////////////////////////////////////
 
-float GetLinearEyeDepthAnyProjection(float depth)
+bool isVR()
 {
-    if (IsPerspectiveProjection())
-    {
-        return LinearEyeDepth(depth, _ZBufferParams);
-    }
-
-    return LinearDepthToEyeDepth(depth);
+    // USING_STEREO_MATRICES
+    #if UNITY_SINGLE_PASS_STEREO
+        return true;
+    #else
+        return false;
+    #endif
 }
 
-// works only in fragment shader
-float GetLinearEyeDepthAnyProjection(float4 svPosition)
+// genshin fov range = 30 to 90
+float3 camera_position()
 {
-    // 透视投影时，Scene View 里直接返回 svPosition.w 会出问题，Game View 里没事
-
-    return GetLinearEyeDepthAnyProjection(svPosition.z);
+    #ifdef USING_STEREO_MATRICES
+        return lerp(unity_StereoWorldSpaceCameraPos[0], unity_StereoWorldSpaceCameraPos[1], 0.5);
+    #endif
+    return _WorldSpaceCameraPos;
 }
 
-struct RimLightMaskData
+// from: https://github.com/cnlohr/shadertrixx/blob/main/README.md#best-practice-for-getting-depth-of-a-given-pixel-from-the-depth-texture
+float GetLinearZFromZDepth_WorksWithMirrors(float zDepthFromMap, float2 screenUV)
 {
-    float3 color;
-    float width;
-    float edgeSoftness;
-    float modelScale;
-    float ditherAlpha;
-};
+	#if defined(UNITY_REVERSED_Z)
+	zDepthFromMap = 1 - zDepthFromMap;
+			
+	// When using a mirror, the far plane is whack.  This just checks for it and aborts.
+	if( zDepthFromMap >= 1.0 ) return _ProjectionParams.z;
+	#endif
 
-float3 GetRimLightMask(
-    RimLightMaskData rlmData,
-    float3 normalWS,
-    float3 viewDirWS,
-    float NoV,
-    float4 svPosition,
-    float4 lightMap)
-{
-    float invModelScale = rcp(rlmData.modelScale);
-    float rimWidth = rlmData.width / 2000.0; // rimWidth 表示的是屏幕上像素的偏移量，和 modelScale 无关
-
-    rimWidth *= lightMap.r; // 有些地方不要边缘光
-    rimWidth *= _ScaledScreenParams.y; // 在不同分辨率下看起来等宽
-
-    if (IsPerspectiveProjection())
-    {
-        // unity_CameraProjection._m11: cot(FOV / 2)
-        // 2.414 是 FOV 为 45 度时的值
-        rimWidth *= unity_CameraProjection._m11 / 2.414; // FOV 越小，角色越大，边缘光越宽
-    }
-    else
-    {
-        // unity_CameraProjection._m11: (1 / Size)
-        // 1.5996 纯 Magic Number
-        rimWidth *= unity_CameraProjection._m11 / 1.5996; // Size 越小，角色越大，边缘光越宽
-    }
-
-    float depth = GetLinearEyeDepthAnyProjection(svPosition);
-    rimWidth *= 10.0 * rsqrt(depth * invModelScale); // 近大远小
-
-    float indexOffsetX = -sign(cross(viewDirWS, normalWS).y) * rimWidth;
-    uint2 index = clamp(svPosition.xy - 0.5 + float2(indexOffsetX, 0), 0, _ScaledScreenParams.xy - 1); // 避免出界
-    float offsetDepth = GetLinearEyeDepthAnyProjection(LoadSceneDepth(index));
-
-    // 只有 depth 小于 offsetDepth 的时候再画
-    float intensity = smoothstep(0.12, 0.18, (offsetDepth - depth) * invModelScale);
-
-    // 用于柔化边缘光，edgeSoftness 越大，越柔和
-    float fresnel = pow(max(1 - NoV, 0.01), max(rlmData.edgeSoftness, 0.01));
-
-    // Dither Alpha 效果会扣掉角色的一部分像素，导致角色身上出现不该有的边缘光
-    // 所以这里在 ditherAlpha 较强时隐去边缘光
-    float ditherAlphaFadeOut = smoothstep(0.9, 1, rlmData.ditherAlpha);
-
-    return rlmData.color * saturate(intensity * fresnel * ditherAlphaFadeOut);
+	float4 clipPos = float4(screenUV.xy, zDepthFromMap, 1.0);
+	clipPos.xyz = 2.0f * clipPos.xyz - 1.0f;
+	float4 camPos = mul(unity_CameraInvProjection, clipPos);
+	return -camPos.z / camPos.w;
 }
 
-struct RimLightData
+float extract_fov()
 {
-    float darkenValue;
-    float intensityFrontFace;
-    float intensityBackFace;
-};
+    return 2.0f * atan((1.0f / unity_CameraProjection[1][1]))* (180.0f / 3.14159265f);
+}
 
-float3 GetRimLight(RimLightData rimData, float3 rimMask, float NoL, Light light, bool isFrontFace)
+float fov_range(float old_min, float old_max, float value)
 {
-    float attenuation = saturate(NoL * light.shadowAttenuation * light.distanceAttenuation);
-    float intensity = lerp(rimData.intensityBackFace, rimData.intensityFrontFace, isFrontFace);
-    return rimMask * (lerp(rimData.darkenValue, 1, attenuation) * max(0, intensity));
+    float new_value = (value - old_min) / (old_max - old_min);
+    return new_value; 
+}
+
+float3 rimlighting(float4 sspos, float3 normal, float4 wspos, float3 light, float material_id, float3 color, float3 view)
+{
+    // // // instead of relying entirely on the camera depth texture, calculate a camera depth vector like this
+    float4 camera_pos =  mul(unity_WorldToCamera, wspos);
+    float camera_depth = saturate(1.0f - ((camera_pos.z / camera_pos.w) / 5.0f)); // tuned for vrchat
+
+    float fov = extract_fov();
+    fov = clamp(fov, 0, 150);
+    float range = fov_range(0, 180, fov);
+    float width_depth = camera_depth / range;
+    float rim_width = lerp(_RimLightThickness * 0.5f, _RimLightThickness * 0.45f, range) * width_depth;
+
+    if(isVR())
+    {
+        rim_width = rim_width * 0.66f;
+    }
+    // screen space uvs
+    float2 screen_pos = sspos.xy / sspos.w;
+
+    // camera space normals : 
+    float3 vs_normal = mul((float3x3)unity_WorldToCamera, normal);
+    vs_normal.z = 0.001f;
+    vs_normal = normalize(vs_normal);
+
+    // screen normals reconstructed using screen position
+    float cs_ndotv = -dot(-view.xyz, vs_normal) + 1.0f;
+    cs_ndotv = saturate(cs_ndotv);
+    cs_ndotv = max(cs_ndotv, 0.0099f);
+    float cs_ndotv_pow = pow(cs_ndotv, 5.0f);
+
+    // sample original camera depth texture
+    float4 depth_og = GetLinearZFromZDepth_WorksWithMirrors(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_CameraDepthTexture, screen_pos), screen_pos);
+
+    float3 normal_cs = mul((float3x3)unity_WorldToCamera, normal);
+    normal_cs.z = 0.001f;
+    normal_cs.xy = normalize(normal_cs.xyz).xy;
+    normal_cs.xyz = normal_cs.xyz * (rim_width);
+    float2 pos_offset = normal_cs * 0.001f + screen_pos;
+    // sample offset depth texture 
+    float depth_off = GetLinearZFromZDepth_WorksWithMirrors(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_CameraDepthTexture, pos_offset), pos_offset);
+
+    float depth_diff = (-depth_og) + depth_off;
+
+    depth_diff = max(depth_diff, 0.001f);
+    depth_diff = pow(depth_diff, 0.04f);
+    depth_diff = (depth_diff - 0.8f) * 10.0f;
+    depth_diff = saturate(depth_diff);
+    
+    float rim_depth = depth_diff * -2.0f + 3.0f;
+    depth_diff = depth_diff * depth_diff;
+    depth_diff = depth_diff * rim_depth;
+    rim_depth = (-depth_og) + 2.0f;
+    rim_depth = rim_depth * 0.3f + depth_og;
+    rim_depth = min(rim_depth, 1.0f);
+    depth_diff = depth_diff * rim_depth;
+
+    depth_diff = lerp(depth_diff, 0.0f, saturate(step(depth_diff, _RimThreshold)));
+
+
+    half outlineColorMask = material_id;
+    half areaMask1 = step(0.003, outlineColorMask) - step(0.35, outlineColorMask);
+    half areaMask2 = step(0.35, outlineColorMask) - step(0.55, outlineColorMask);
+    half areaMask3 = step(0.55, outlineColorMask) - step(0.75, outlineColorMask);
+    half areaMask4 = step(0.75, outlineColorMask) - step(0.95, outlineColorMask);
+    half areaMask5 = step(0.95, outlineColorMask);
+
+    // get rim light color 
+    float3 rim_color = ((1.0 - (areaMask1 + areaMask2 + areaMask3 + areaMask4 + areaMask5)) * _RimColor1.rgb + areaMask2 * _RimColor2.rgb + areaMask3 * _RimColor3.rgb + areaMask4 * _RimColor4.rgb + areaMask5 * _RimColor5.rgb) * _RimColor;
+    rim_color = rim_color * cs_ndotv;
+
+    depth_diff = depth_diff * _RimLightIntensity;
+    depth_diff *= camera_depth;
+
+    float3 rim_light = depth_diff * cs_ndotv_pow;
+    rim_light = saturate(rim_light);
+
+    rim_light = saturate(rim_light * (rim_color.xyz * (float3)5.0f));
+
+    
+    return rim_light;
+}
+
+float3 GetRimLight(float4 sspos, float3 normal, float4 wspos, float3 light, float material_id, float3 color, float3 view)
+{
+    return rimlighting(sspos, normal, wspos, light, material_id, color, view);
 }
 
 #endif

@@ -64,13 +64,22 @@ Shader "GenshinCelShaderURP/V5.0Beta"
 
         [Header(Rim Lighting)]
         [Toggle(_RIM_LIGHTING_ON)] _UseRimLight("Use Rim light (Default YES)", Float) = 1
-        _ModelScale("Model Scale (Default 1)", Float) = 1
-        _RimIntensity("Rim Intensity (Front Face)", Float) = 0.5
-        _RimIntensityBackFace("Rim Intensity (Back Face)", Float) = 0
-        _RimColor("Rim Color", Color) = (1, 1, 1, 1)
-        _RimWidth("Rim Width", Float) = 1
-        _RimDark("Rim Darken Value", Range(0, 1)) = 0.5
-        _RimEdgeSoftness("Rim Edge Softness", Float) = 0.05
+        [HideInInspector] m_start_rimlight("Rim Light", Float) = 0
+        [Toggle] _UseRimLight ("Enable Rim Light", Float) = 1
+        _RimThreshold ("Rim Threshold", Range(0.0, 1.0)) = 0.5
+        _RimLightIntensity ("Rim Light Intensity", Float) = 0.25
+        _RimLightThickness ("Rim Light Thickness", Range(0.0, 10.0)) = 1.0
+        [HideInInspector] m_start_lightingrimcolor("Rimlight Color", Float) = 0
+        _RimColor (" Rim Light Color", Color)   = (1, 1, 1, 1)
+        _RimColor0 (" Rim Light Color 1", Color)   = (1, 1, 1, 1)
+        _RimColor1 (" Rim Light Color 2", Color)  = (1, 1, 1, 1)
+        _RimColor2 (" Rim Light Color 3", Color)  = (1, 1, 1, 1)
+        _RimColor3 (" Rim Light Color 4", Color)  = (1, 1, 1, 1)
+        _RimColor4 (" Rim Light Color 5", Color) = (1, 1, 1, 1)
+        [HideInInspector] m_end_lightingrimcolor("", Float) = 0
+        [HideInInspector] m_end_rimlight ("", Float) = 0
+        [HideInInspector] g_end_light("", Int) = 0
+        [HideInInspector] m_end_lightning ("", Float) = 0
 
         [Header(Emission)]
         [Toggle(_EMISSION_ON)] _UseEmission("Use emission (Default NO)", Float) = 0

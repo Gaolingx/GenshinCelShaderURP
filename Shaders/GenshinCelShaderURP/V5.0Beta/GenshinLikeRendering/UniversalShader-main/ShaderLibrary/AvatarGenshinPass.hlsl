@@ -11,7 +11,8 @@ struct Attributes
     float3 normalOS : NORMAL;
     float4 tangentOS : TANGENT;
     float4 vertexColor : COLOR;
-    float2 uv : TEXCOORD0;
+    float2 uv1 : TEXCOORD0;
+    float2 uv2 : TEXCOORD1;
 };
 
 struct Varyings
@@ -19,14 +20,38 @@ struct Varyings
     float4 positionCS : SV_POSITION;
     float3 positionWS : VAR_POSITION_WS;
     float3 normalWS : VAR_NORMAL_WS;
-    float2 uv : VAR_BASE_UV;
+    float4 uv : VAR_BASE_UV;
     float4 positionWSAndFogFactor : TEXCOORD1;
     float3 bitangentWS : TEXCOORD2;
     float3 tangentWS : TEXCOORD3;
     float3 SH : TEXCOORD4;
-    float4 ss_pos    : TEXCOORD5;
+    float4 ss_pos : TEXCOORD5;
     float4 vertexColor : COLOR;
 };
+
+float4 CombineAndTransformDualFaceUV(float2 uv1, float2 uv2, float4 mapST)
+{
+    return float4(uv1, uv2) * mapST.xyxy + mapST.zwzw;
+}
+
+void SetupDualFaceRendering(inout float3 normalWS, inout float4 uv, FRONT_FACE_TYPE isFrontFace)
+{
+    #if defined(_MODEL_GAME)
+        if (IS_FRONT_VFACE(isFrontFace, 1, 0))
+            return;
+
+        // 游戏内的部分模型用了双面渲染
+        // 渲染背面的时候需要调整一些值，这样就不需要修改之后的计算了
+
+        // 反向法线
+        normalWS *= -1;
+
+        // 交换 uv1 和 uv2
+        #if defined(_BACKFACEUV2_ON)
+            uv.xyzw = uv.zwxy;
+        #endif
+    #endif
+}
 
 float3 desaturation(float3 color)
 {
@@ -133,7 +158,7 @@ Varyings GenshinStyleVertex(Attributes input)
     output.tangentWS = vertexNormalInputs.tangentWS;
     output.bitangentWS = vertexNormalInputs.bitangentWS;
     output.normalWS = vertexNormalInputs.normalWS;
-    output.uv = input.uv;
+    output.uv = CombineAndTransformDualFaceUV(input.uv1, input.uv2, 1);
     output.vertexColor = input.vertexColor;
 
     // 间接光 with 球谐函数
@@ -144,13 +169,15 @@ Varyings GenshinStyleVertex(Attributes input)
     return output;
 }
 
-half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : SV_Target
+half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_FACE_SEMANTIC) : SV_Target
 {
-    half4 mainTexCol = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
-    //给背面填充颜色，对眼睛，丝袜很有用
-    mainTexCol.rgb *= lerp(_BackFaceTintColor, _FrontFaceTintColor, isFrontFace);
+    SetupDualFaceRendering(input.normalWS, input.uv, isFrontFace);
 
-    half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv);
+    half4 mainTexCol = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv.xy);
+    //给背面填充颜色，对眼睛，丝袜很有用
+    mainTexCol.rgb *= IS_FRONT_VFACE(isFrontFace, _FrontFaceTintColor.rgb, _BackFaceTintColor.rgb);
+
+    half4 ilmTexCol = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv.xy);
 
     //阴影坐标
     float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
@@ -173,8 +200,8 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
     //获取世界空间法线，如果要采样NormalMap，要使用TBN矩阵变换
     #if _NORMAL_MAP_ON
         float3x3 tangentToWorld = float3x3(input.tangentWS, input.bitangentWS, input.normalWS);
-        float3 normalTS = UnpackNormal(SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, input.uv));
-        float3 normalFactor = float3(_BumpScale, _BumpScale, 1);
+        float3 normalTS = UnpackNormal(SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, input.uv.xy));
+        float3 normalFactor = float3(_BumpFactor, _BumpFactor, 1);
         float3 normal = normalize(normalTS * normalFactor);
         float3 normalWS = TransformTangentToWorld(normal, tangentToWorld, true);
         input.normalWS = normalWS;
@@ -222,7 +249,16 @@ half4 GenshinStyleFragment(Varyings input, bool isFrontFace : SV_IsFrontFace) : 
         if(_SpecularHighlights) specular_color(ndoth, ShadowColorTint, ilmTexCol.x, ilmTexCol.z, material_id, specular);
         if(ilmTexCol.x > 0.90f) specular = 0.0f; // making sure the specular doesnt bleed into the metal area
         // METALIC :
-        if(_MetalMaterial) metalics(ShadowColorTint, normalWS, ndoth, ilmTexCol.x, isFrontFace, diffuseColor.xyz);
+        float frontFace = 1;
+        if (IS_FRONT_VFACE(isFrontFace, 1, 0))
+        {
+            frontFace = 0;
+        }
+        else
+        {
+            frontFace = 1;
+        }
+        if(_MetalMaterial) metalics(ShadowColorTint, normalWS, ndoth, ilmTexCol.x, frontFace, diffuseColor.xyz);
 
         FinalSpecCol = specular;
     #else

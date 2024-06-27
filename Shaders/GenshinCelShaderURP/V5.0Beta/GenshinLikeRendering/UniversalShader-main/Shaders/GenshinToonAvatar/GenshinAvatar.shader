@@ -6,6 +6,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         [KeywordEnum(Body, Face)] _RenderType("Render Type", Float) = 0.0
         [KeywordEnum(R, A)] _UseFaceLightMapChannel("Use Face Lightmap Channel", Float) = 1.0
         [Toggle] _UseCoolShadowColorOrTex("Use Cool Ramp Shadow", Float) = 0.0
+        [Toggle(_BACKFACEUV2_ON)] _UseBackFaceUV2("Use Back Face UV2 (Default NO)", Float) = 0
         _FrontFaceTintColor("Front face tint color (Default white)", Color) = (1.0, 1.0, 1.0, 1.0)
         _BackFaceTintColor("Back face tint color (Default white)", Color) = (1.0, 1.0, 1.0, 1.0)
         [KeywordEnum(None, Flicker, Emission, AlphaTest)] _MainTexAlphaUse("Diffuse Texture Alpha Use", Float) = 0.0
@@ -14,7 +15,6 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _MainTexCutOff("Alpha clip (MainTex)", Range(0.0, 1.0)) = 0.5
 
         [Header(Main Lighting)]
-        [Toggle(_MAINLIGHT_SHADOWATTENUATION_ON)] _UseMainLightshadowAttenuation("Use mainLight shadow attenuation", Float) = 0
         _MainTex("Diffuse Texture", 2D) = "white" { }
         _ilmTex("ilm Texture", 2D) = "white" { }
         _RampTex("Ramp Texture", 2D) = "white" { }
@@ -22,6 +22,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _GreyFac("Gray Factor", Float) = 1.08
         _DarkFac("Dark Factor", Float) = 0.55
         _RampAOLerp("Shadow AO Lerp", Range(0.0, 1.0)) = 1.0
+        [Toggle(_MAINLIGHT_SHADOWATTENUATION_ON)] _UseMainLightshadowAttenuation("Use mainLight shadow attenuation", Float) = 0
 
         [Header(Indirect Lighting)]
         _IndirectLightFlattenNormal("Indirect light flatten normal (Default 0)", Range(0, 1)) = 0
@@ -49,7 +50,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
 
         [Header(Normal)]
         [Toggle(_NORMAL_MAP_ON)] _UseNormalMap("Use Normal Map (Default NO)", Float) = 0
-        _BumpScale("Bump Scale", Float) = 1.0
+        _BumpFactor("Bump Scale (Default 1)", Float) = 1.0
         [Normal] _NormalMap("Normal Map (Default black)", 2D) = "bump" { }
 
         [Header(Specular)]
@@ -179,7 +180,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
 
         Pass
         {
-            Name "GenshinStyleBasicRender"
+            Name "GenshinCharacterBasicPass"
             Tags
             {
                 "LightMode"="UniversalForward"
@@ -213,6 +214,8 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             #pragma shader_feature_local _ _RENDERTYPE_BODY _RENDERTYPE_FACE
             #pragma shader_feature_fragment _ _USEFACELIGHTMAPCHANNEL_R _USEFACELIGHTMAPCHANNEL_A
             #pragma shader_feature_local _EMISSION_ON
+            #pragma shader_feature_local _MODEL_GAME _MODEL_MMD
+            #pragma shader_feature_local_fragment _ _BACKFACEUV2_ON
             #pragma shader_feature_local _MAINLIGHT_SHADOWATTENUATION_ON
             #pragma shader_feature_local_fragment _NORMAL_MAP_ON
             #pragma shader_feature_local _SPECULAR_ON
@@ -235,6 +238,8 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             #pragma vertex BackFaceOutlineVertex
             #pragma fragment BackFaceOutlineFragment
             #pragma shader_feature_local _OUTLINE_CUSTOM_COLOR_ON
+            #pragma shader_feature_local _MODEL_GAME _MODEL_MMD
+            #pragma shader_feature_local_fragment _ _BACKFACEUV2_ON
 
             // all shader logic written inside this .hlsl, remember to write all #define BEFORE writing #include
             #include "../../ShaderLibrary/AvatarGenshinOutlinePass.hlsl"

@@ -5,7 +5,7 @@
 
 struct vs_in
 {
-    float4 vertex     : POSITION;
+    float4 vertex  : POSITION;
     float3 normal  : NORMAL;
     float4 tangent : TANGENT;
     float2 uv_0    : TEXCOORD0;
@@ -33,6 +33,30 @@ struct vs_out
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
+float4 CombineAndTransformDualFaceUV(float2 uv1, float2 uv2, float4 mapST)
+{
+    return float4(uv1, uv2) * mapST.xyxy + mapST.zwzw;
+}
+
+void SetupDualFaceRendering(inout float3 normalWS, inout float4 uv, FRONT_FACE_TYPE isFrontFace)
+{
+    #if defined(_MODEL_GAME)
+        if (IS_FRONT_VFACE(isFrontFace, 1, 0))
+            return;
+
+        // 游戏内的部分模型用了双面渲染
+        // 渲染背面的时候需要调整一些值，这样就不需要修改之后的计算了
+
+        // 反向法线
+        normalWS *= -1;
+
+        // 交换 uv1 和 uv2
+        #if defined(_BACKFACEUV2_ON)
+            uv.xyzw = uv.zwxy;
+        #endif
+    #endif
+}
+
 float materialID(float alpha)
 {
     float region = alpha;
@@ -54,7 +78,7 @@ void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold)
 
 vs_out BackFaceOutlineVertex(vs_in v)
 {
-    VertexPositionInputs vertexPositionInput = GetVertexPositionInputs(v.vertex);
+    VertexPositionInputs vertexPositionInput = GetVertexPositionInputs(v.vertex.xyz);
     VertexNormalInputs normalInput = GetVertexNormalInputs(v.normal, v.tangent);
 
     vs_out o = (vs_out)0.0f; // cast all output values to zero to prevent potential errors
@@ -66,7 +90,7 @@ vs_out BackFaceOutlineVertex(vs_in v)
     {
         float3 outline_normal = (_OutlineType == 1.0) ? v.normal : v.tangent.xyz;
         float4 wv_pos = mul(UNITY_MATRIX_MV, v.vertex);
-        float3 view = _WorldSpaceCameraPos.xyz - (float3)mul(v.vertex.xyz, unity_ObjectToWorld);
+        float3 view = _WorldSpaceCameraPos.xyz - (float3)mul(v.vertex, unity_ObjectToWorld);
         o.view = normalize(view);
         float3 ws_normal = mul(outline_normal, (float3x3)unity_ObjectToWorld);
 
@@ -125,8 +149,7 @@ vs_out BackFaceOutlineVertex(vs_in v)
         o.pos = mul(UNITY_MATRIX_P, o.pos);
         o.ss_pos = ComputeScreenPos(o.pos);
         o.normal = normalize(ws_normal);
-        o.uv_a.xy = v.uv_0;
-        o.uv_a.zw = v.uv_1;
+        o.uv_a = CombineAndTransformDualFaceUV(v.uv_0, v.uv_1, 1);
         o.v_col = v.v_col;
     }
 
@@ -135,10 +158,12 @@ vs_out BackFaceOutlineVertex(vs_in v)
     return o;
 }
 
-half4 BackFaceOutlineFragment(vs_out input) : SV_Target
+half4 BackFaceOutlineFragment(vs_out input, FRONT_FACE_TYPE isFrontFace : FRONT_FACE_SEMANTIC) : SV_Target
 {
+    SetupDualFaceRendering(input.normal, input.uv_a, isFrontFace);
+
     //根据ilmTexture的五个分组区分出五个不同颜色的描边区域
-    half outlineColorMask = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv_a).a;
+    half outlineColorMask = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv_a.xy).a;
     float material_id = materialID(outlineColorMask);
 
     float4 outline_colors[5] = 

@@ -114,6 +114,7 @@ float4 _SpecularColor;
 float _RimLightThickness;
 float _RimLightIntensity;
 float _RimThreshold;
+float4 _CustomOutlineCol;
 float4 _RimColor;
 float4 _RimColor1;
 float4 _RimColor2;

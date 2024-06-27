@@ -131,6 +131,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         // Outline Color
         [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color", Float) = 0
         [HideInInspector] m_start_outlinescolor("Outline Colors", Float) = 0
+        _CustomOutlineCol("Custom Outline Color", Color) = (0.5, 0.5, 0.5, 1.0)
         _OutlineColor1 ("Outline Color 1", Color) = (0.0, 0.0, 0.0, 1.0)
         _OutlineColor2 ("Outline Color 2", Color) = (0.0, 0.0, 0.0, 1.0)
         _OutlineColor3 ("Outline Color 3", Color) = (0.0, 0.0, 0.0, 1.0)

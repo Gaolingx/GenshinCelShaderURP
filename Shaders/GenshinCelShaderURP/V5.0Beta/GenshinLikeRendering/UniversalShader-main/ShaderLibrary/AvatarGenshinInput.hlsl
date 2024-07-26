@@ -108,7 +108,16 @@ float _SpecMulti2;
 float _SpecMulti3;
 float _SpecMulti4;
 float _SpecMulti5;
+float _SpecOpacity;
+float _SpecOpacity2;
+float _SpecOpacity3;
+float _SpecOpacity4;
+float _SpecOpacity5;
 float4 _SpecularColor;
+float4 _SpecularColor2;
+float4 _SpecularColor3;
+float4 _SpecularColor4;
+float4 _SpecularColor5;
 
 //RimLight
 float _RimLightThickness;

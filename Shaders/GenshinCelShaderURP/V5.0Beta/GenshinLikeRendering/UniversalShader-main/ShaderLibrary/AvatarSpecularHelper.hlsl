@@ -47,8 +47,10 @@ void metalics(in float3 shadow, in float3 normal, float3 ndoth, float specularte
     float3 metal = metal_color + (metal_specular * (float3)0.5f);
     metal = metal * metal_shadow;  
     
-    metal = (speculartex > 0.90f) ? metal : color;
-    color.xyz = metal;   
+    float metal_area = saturate((speculartex > 0.89f));
+    metal = (metal_area) ? metal : color;
+    color.xyz = metal; 
+      
 }
 
 void specular_color(in float ndoth, in float3 shadow, in float lightmapspec, in float lightmaparea, in float material_id, inout float3 specular)
@@ -61,10 +63,36 @@ void specular_color(in float ndoth, in float3 shadow, in float lightmapspec, in 
         float2(_Shininess4, _SpecMulti4),
         float2(_Shininess5, _SpecMulti5),        
     };
+
+    float4 spec_color_array[5] =
+    {
+        _SpecularColor, 
+        _SpecularColor2, 
+        _SpecularColor3, 
+        _SpecularColor4, 
+        _SpecularColor5, 
+    };
     
     float term = ndoth;
     term = pow(max(ndoth, 0.001f), spec_array[material_id - 1].x);
     float check = term > (-lightmaparea + 1.015);
-    specular = term * (_SpecularColor * spec_array[material_id - 1].y) * lightmapspec; 
+    specular = term * (spec_color_array[material_id - 1] * spec_array[material_id - 1].y) * lightmapspec; 
     specular = lerp((float3)0.0f, specular * (float3)0.5f, check);
+}
+
+float3 ApplySpecularOpacity(float3 out_color, float3 specular, float material_id)
+{
+    float spec_array[5] =
+    {
+        float(_SpecOpacity),
+        float(_SpecOpacity2),
+        float(_SpecOpacity3),
+        float(_SpecOpacity4),
+        float(_SpecOpacity5),        
+    };
+    float3 spec_color = out_color.xyz + (float3)-1.0f;
+    spec_color.xyz = (spec_array[material_id - 1]) * spec_color.xyz + (float3)1.0f;
+    spec_color.xyz = spec_color.xyz * specular;
+
+    return spec_color;
 }

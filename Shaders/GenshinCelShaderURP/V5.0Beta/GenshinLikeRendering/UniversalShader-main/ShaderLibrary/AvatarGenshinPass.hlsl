@@ -284,6 +284,7 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     FinalDiffuse += indirectLightColor;
     FinalDiffuse += diffuseColor;
     FinalDiffuse += FinalSpecCol;
+    FinalDiffuse += ApplySpecularOpacity(FinalDiffuse, FinalSpecCol, ilmTexCol.a);
     FinalDiffuse += rimLightColor;
     FinalDiffuse += emissionColor;
 

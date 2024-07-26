@@ -90,7 +90,16 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _SpecMulti3 ("Specular Multiplier 3", Float) = 0.1
         _SpecMulti4 ("Specular Multiplier 4", Float) = 0.1
         _SpecMulti5 ("Specular Multiplier 5", Float) = 0.1
+        _SpecOpacity ("Specular Opacity 1", Float) = 0.1
+        _SpecOpacity2 ("Specular Opacity 2", Float) = 0.1
+        _SpecOpacity3 ("Specular Opacity 3", Float) = 0.1
+        _SpecOpacity4 ("Specular Opacity 4", Float) = 0.1
+        _SpecOpacity5 ("Specular Opacity 5", Float) = 0.1
         _SpecularColor ("Specular Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        _SpecularColor2 ("Specular Color 2", Color) = (1.0, 1.0, 1.0, 1.0)
+        _SpecularColor3 ("Specular Color 3", Color) = (1.0, 1.0, 1.0, 1.0)
+        _SpecularColor4 ("Specular Color 4", Color) = (1.0, 1.0, 1.0, 1.0)
+        _SpecularColor5 ("Specular Color 5", Color) = (1.0, 1.0, 1.0, 1.0)
         [HideInInspector] m_end_specular("", Int) = 0
         [HideInInspector] m_end_reflections ("", Float) = 0
 

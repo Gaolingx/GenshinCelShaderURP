@@ -1,5 +1,7 @@
-#ifndef CUSTOM_AVARTAR_LIGHTING_INCLUDED
-#define CUSTOM_AVARTAR_LIGHTING_INCLUDED
+#ifndef CUSTOM_AVARTAR_RIMLIGHTING_INCLUDED
+#define CUSTOM_AVARTAR_RIMLIGHTING_INCLUDED
+
+#include "../ShaderLibrary/AvatarShaderUtils.hlsl"
 
 ///////////////////////////////////////////////////////////////////////////////
 //                      Lighting Functions                                   //
@@ -115,7 +117,7 @@ float3 rimlighting(float4 sspos, float3 normal, float4 wspos, float3 light, floa
     };
 
     // get rim light color 
-    float3 rim_color = rim_colors[material_id - 1] * _RimColor;
+    float3 rim_color = rim_colors[get_index(material_id)] * _RimColor;
     rim_color = rim_color * cs_ndotv;
 
     depth_diff = depth_diff * _RimLightIntensity;
@@ -124,8 +126,7 @@ float3 rimlighting(float4 sspos, float3 normal, float4 wspos, float3 light, floa
     float3 rim_light = depth_diff * cs_ndotv_pow;
     rim_light = saturate(rim_light);
 
-    rim_light = saturate(rim_light * (rim_color.xyz * (float3)5.0f));
-
+    rim_light = saturate(rim_light * rim_color.xyz);
     
     return rim_light;
 }

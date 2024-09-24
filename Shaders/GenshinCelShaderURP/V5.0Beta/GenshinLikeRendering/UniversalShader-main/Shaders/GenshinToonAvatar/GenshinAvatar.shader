@@ -21,7 +21,6 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _BrightFac("Bright Factor", Float) = 0.99
         _GreyFac("Gray Factor", Float) = 1.08
         _DarkFac("Dark Factor", Float) = 0.55
-        _RampAOLerp("Shadow AO Lerp", Range(0.0, 1.0)) = 1.0
         [Toggle(_MAINLIGHT_SHADOWATTENUATION_ON)] _UseMainLightshadowAttenuation("Use mainLight shadow attenuation", Float) = 0
 
         [Header(Indirect Lighting)]
@@ -61,7 +60,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _MTSpecularRamp("Specular Ramp", 2D)= "white"{ }
         _MTMapBrightness ("Metallic Matcap Brightness", Float) = 3.0
         _MTShininess ("Metallic Specular Shininess", Float) = 90.0
-        _MTSpecularScale ("Metallic Specular Scale", Float) = 15.0 
+        _MTSpecularScale ("Metallic Specular Scale", Float) = 15.0
         _MTMapTileScale ("Metallic Matcap Tile Scale", Range(0.0, 2.0)) = 1.0
         _MTSpecularAttenInShadow ("Metallic Specular Power in Shadow", Range(0.0, 1.0)) = 0.2
         _MTSharpLayerOffset ("Metallic Sharp Layer Offset", Range(0.001, 1.0)) = 1.0
@@ -71,8 +70,8 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _MTShadowMultiColor ("Metallic Matcap Shadow Multiply Color", Color) = (0.78, 0.77, 0.82, 1.0)
         _MTSpecularColor ("Metallic Specular Color", Color) = (1.0, 1.0, 1.0, 1.0)
         _MTSharpLayerColor ("Metallic Sharp Layer Color", Color) = (1.0, 1.0, 1.0, 1.0)
-        // Specular 
-        [Toggle] _SpecularHighlights ("Enable Specular", Float) = 0.0
+        // Specular
+        [Toggle] _SpecularHighlights ("Enable Specular Highlights", Float) = 0.0
         _Shininess ("Shininess 1", Float) = 10
         _Shininess2 ("Shininess 2", Float) = 10
         _Shininess3 ("Shininess 3", Float) = 10
@@ -88,23 +87,25 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _SpecOpacity3 ("Specular Opacity 3", Float) = 0.1
         _SpecOpacity4 ("Specular Opacity 4", Float) = 0.1
         _SpecOpacity5 ("Specular Opacity 5", Float) = 0.1
-        _SpecularColor ("Specular Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        _SpecularColor ("Specular Color 1", Color) = (1.0, 1.0, 1.0, 1.0)
         _SpecularColor2 ("Specular Color 2", Color) = (1.0, 1.0, 1.0, 1.0)
         _SpecularColor3 ("Specular Color 3", Color) = (1.0, 1.0, 1.0, 1.0)
         _SpecularColor4 ("Specular Color 4", Color) = (1.0, 1.0, 1.0, 1.0)
         _SpecularColor5 ("Specular Color 5", Color) = (1.0, 1.0, 1.0, 1.0)
 
         [Header(Rim Lighting)]
-        [Toggle(_RIM_LIGHTING_ON)] _UseRimLight("Enable Rim Light (Default YES)", Float) = 1
-        _RimThreshold ("Rim Threshold", Range(0.0, 1.0)) = 0.5
-        _RimLightIntensity ("Rim Light Intensity", Float) = 0.25
-        _RimLightThickness ("Rim Light Thickness", Range(0.0, 10.0)) = 1.0
-        _RimColor (" Rim Light Color", Color)   = (1, 1, 1, 1)
-        _RimColor1 (" Rim Light Color 1", Color)  = (1, 1, 1, 1)
-        _RimColor2 (" Rim Light Color 2", Color)  = (1, 1, 1, 1)
-        _RimColor3 (" Rim Light Color 3", Color)  = (1, 1, 1, 1)
-        _RimColor4 (" Rim Light Color 4", Color) = (1, 1, 1, 1)
-        _RimColor5 (" Rim Light Color 5", Color) = (1, 1, 1, 1)
+        [Toggle(_RIM_LIGHTING_ON)] _UseRimLight("Use Rim light (Default YES)",float) = 1
+        _RimLightWidth("Rim light width (Default 1)",Range(0, 10)) = 1
+        _RimLightThreshold("Rin light threshold (Default 0.05)",Range(-1, 1)) = 0.05
+        _RimLightFadeout("Rim light fadeout (Default 1)",Range(0.01, 1)) = 1
+        [HDR] _RimLightTintColor("Rim light tint colar (Default white)",Color) = (1,1,1)
+        _RimLightBrightness("Rim light brightness (Default 1)",Range(0, 10)) = 1
+        _RimColor ("Rim Light Color", Color)   = (1, 1, 1, 1)
+        _RimColor1 ("Rim Light Color 1", Color)  = (1, 1, 1, 1)
+        _RimColor2 ("Rim Light Color 2", Color)  = (1, 1, 1, 1)
+        _RimColor3 ("Rim Light Color 3", Color)  = (1, 1, 1, 1)
+        _RimColor4 ("Rim Light Color 4", Color) = (1, 1, 1, 1)
+        _RimColor5 ("Rim Light Color 5", Color) = (1, 1, 1, 1)
 
         [Header(Emission)]
         [Toggle(_EMISSION_ON)] _UseEmission("Use emission (Default NO)", Float) = 0
@@ -113,24 +114,23 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _EmissionScaler("Emission Scaler", Range(1.0, 10.0)) = 1.0
 
         [Header(Outline)]
-        [Toggle] _EnableOutlineToggle("Enable Outline (Default YES)", Float) = 1
-        [Enum(None, 0, Normal, 1,  Tangent, 2)] _OutlineType ("Outline Type", Float) = 1.0
-        [Toggle] _FallbackOutlines ("Enable Static Outlines", Range(0.0, 1.0)) = 0
-        [Toggle] _UseFaceOutline ("Enable Face Outline", Float) = 0.0
-        _OutlineWidth ("Outline Width", Float) = 0.03
-        _Scale ("Outline Scale", Float) = 0.01
-        // Outline Color
+        [Toggle] _EnableOutline("Enable Outline (Default YES)", Float) = 1
+        [KeywordEnum(Normal, Tangent, UV2)] _OutlineNormalChannel("Outline Normal Channel", Float) = 0
         [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color", Float) = 0
-        _CustomOutlineCol("Custom Outline Color", Color) = (0.5, 0.5, 0.5, 1.0)
-        _OutlineColor1 ("Outline Color 1", Color) = (0.0, 0.0, 0.0, 1.0)
-        _OutlineColor2 ("Outline Color 2", Color) = (0.0, 0.0, 0.0, 1.0)
-        _OutlineColor3 ("Outline Color 3", Color) = (0.0, 0.0, 0.0, 1.0)
-        _OutlineColor4 ("Outline Color 4", Color) = (0.0, 0.0, 0.0, 1.0)
-        _OutlineColor5 ("Outline Color 5", Color) = (0.0, 0.0, 0.0, 1.0)
-        // Outline Offsets
-        _OutlineWidthAdjustScales ("Outline Width Adjust Scales", Vector) = (0.01, 0.245, 0.6, 0.0)
-        _OutlineWidthAdjustZs ("Outline Width Adjust Zs", Vector) = (0.001, 2.0, 6.0, 0.0)
-        _MaxOutlineZOffset ("Max Z-Offset", Float) = 1.0
+        _OutlineDefaultColor("Outline Default Color", Color) = (0.5, 0.5, 0.5, 1)
+        _OutlineColor("Outline Color", Color) = (0, 0, 0, 1)
+        _OutlineColor1("Outline Color 1", Color) = (0, 0, 0, 1)
+        _OutlineColor2("Outline Color 2", Color) = (0, 0, 0, 1)
+        _OutlineColor3("Outline Color 3", Color) = (0, 0, 0, 1)
+        _OutlineColor4("Outline Color 4", Color) = (0, 0, 0, 1)
+        _OutlineColor5("Outline Color 5", Color) = (0, 0, 0, 1)
+
+        [Toggle] _FaceMaterial("Is Face Material Outline", Float) = 0
+        _OutlineWidth("OutlineWidth (World Space)", Range(0, 1)) = 0.1
+        _OutlineScale("OutlineScale (Default 1)", Float) = 1
+        _OutlineWidthParams("Outline Width Params", Vector) = (0, 1, 0, 1)
+        _OutlineZOffset("Outline Z Offset", Float) = 0
+        _ScreenOffset("Screen Offset", Vector) = (0, 0, 0, 0)
 
         [Header(Debug)]
         _DebugValue01("Debug Value 0-1", Range(0.0, 1.0)) = 0.0
@@ -143,13 +143,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendModeAlpha("Core Pass dst blend mode alpha (Default Zero)", Float) = 0
         [Enum(UnityEngine.Rendering.BlendOp)] _BlendOp("BlendOp (Default Add)", Float) = 0
         [Enum(Off, 0, On, 1)] _ZWrite("ZWrite (Default On)", Float) = 1
-        _StencilRef("Stencil reference (Default 0)", Range(0, 255)) = 0
-        _StencilReadMask("Stencil Read Mask (Default 255)", Range(0, 255)) = 255
-        _StencilWriteMask("Stencil Write Mask (Default 255)", Range(0, 255)) = 255
-        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp("Stencil comparison (Default disabled)", Int) = 0
-        [Enum(UnityEngine.Rendering.StencilOp)] _StencilPassOp("Stencil pass comparison (Default keep)", Int) = 0
-        [Enum(UnityEngine.Rendering.StencilOp)] _StencilFailOp("Stencil fail comparison (Default keep)", Int) = 0
-        [Enum(UnityEngine.Rendering.StencilOp)] _StencilZFailOp("Stencil z fail comparison (Default keep)", Int) = 0
+
 
     }
     SubShader
@@ -174,16 +168,6 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             }
 
             Cull [_CullMode]
-            Stencil
-            {
-                Ref [_StencilRef]
-                ReadMask [_StencilReadMask]
-                WriteMask [_StencilWriteMask]
-                Comp [_StencilComp]
-                Pass [_StencilPassOp]
-                Fail [_StencilFailOp]
-                ZFail [_StencilZFailOp]
-            }
             Blend [_SrcBlendModeColor] [_DstBlendModeColor], [_SrcBlendModeAlpha] [_DstBlendModeAlpha]
             BlendOp [_BlendOp]
             ZWrite [_ZWrite]
@@ -208,7 +192,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             #pragma shader_feature_local_fragment _NORMAL_MAP_ON
             #pragma shader_feature_local _SPECULAR_ON
             #pragma shader_feature_local _RIM_LIGHTING_ON
-            
+
             #include "../../ShaderLibrary/AvatarGenshinPass.hlsl"
             ENDHLSL
         }
@@ -228,6 +212,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             #pragma shader_feature_local _OUTLINE_CUSTOM_COLOR_ON
             #pragma shader_feature_local _MODEL_GAME _MODEL_MMD
             #pragma shader_feature_local_fragment _ _BACKFACEUV2_ON
+            #pragma shader_feature_local _OUTLINENORMALCHANNEL_NORMAL _OUTLINENORMALCHANNEL_TANGENT _OUTLINENORMALCHANNEL_UV2
 
             // all shader logic written inside this .hlsl, remember to write all #define BEFORE writing #include
             #include "../../ShaderLibrary/AvatarGenshinOutlinePass.hlsl"
@@ -264,15 +249,15 @@ Shader "GenshinCelShaderURP/V5.0Beta"
 
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
-            
+
             ENDHLSL
         }
-        
+
         Pass
         {
             Name "DepthOnly"
             Tags{"LightMode" = "DepthOnly"}
-            
+
             Cull[_CullMode]
             ZWrite On
             ColorMask 0
@@ -295,7 +280,7 @@ Shader "GenshinCelShaderURP/V5.0Beta"
 
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
-            
+
             ENDHLSL
         }
 
@@ -322,10 +307,10 @@ Shader "GenshinCelShaderURP/V5.0Beta"
             // GPU Instancing
             #pragma multi_compile_instancing
             #pragma multi_compile _ DOTS_INSTANCING_ON
-            
+
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitDepthNormalsPass.hlsl"
-            
+
             ENDHLSL
         }
     }

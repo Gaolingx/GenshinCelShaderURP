@@ -2,31 +2,29 @@
 #define CUSTOM_AVATAR_GENSHIN_PASS_INCLUDED
 
 #include "../ShaderLibrary/AvatarGenshinInput.hlsl"
-#include "../ShaderLibrary/AvatarRimLightHelper.hlsl"
 #include "../ShaderLibrary/AvatarSpecularHelper.hlsl"
 #include "../ShaderLibrary/AvatarShaderUtils.hlsl"
 
 struct Attributes
 {
-    float4 positionOS : POSITION;
-    float3 normalOS : NORMAL;
-    float4 tangentOS : TANGENT;
+    float4 positionOS  : POSITION;
+    float3 normalOS    : NORMAL;
+    float4 tangentOS   : TANGENT;
     float4 vertexColor : COLOR;
-    float2 uv1 : TEXCOORD0;
-    float2 uv2 : TEXCOORD1;
+    float2 uv1         : TEXCOORD0;
+    float2 uv2         : TEXCOORD1;
 };
 
 struct Varyings
 {
-    float4 positionCS : SV_POSITION;
-    float3 positionWS : VAR_POSITION_WS;
-    float3 normalWS : VAR_NORMAL_WS;
-    float4 uv : VAR_BASE_UV;
-    float4 positionWSAndFogFactor : TEXCOORD1;
-    float3 bitangentWS : TEXCOORD2;
-    float3 tangentWS : TEXCOORD3;
-    float3 SH : TEXCOORD4;
-    float4 ss_pos : TEXCOORD5;
+    float4 positionCS  : SV_POSITION;
+    float3 positionWS  : TEXCOORD0;
+    float3 normalWS    : TEXCOORD1;
+    float4 uv          : TEXCOORD2;
+    float3 bitangentWS : TEXCOORD3;
+    float3 tangentWS   : TEXCOORD4;
+    float3 SH          : TEXCOORD5;
+    real   fogFactor   : TEXCOORD6;
     float4 vertexColor : COLOR;
 };
 
@@ -36,11 +34,10 @@ Varyings GenshinStyleVertex(Attributes input)
 
     VertexPositionInputs vertexPositionInputs = GetVertexPositionInputs(input.positionOS.xyz);
     VertexNormalInputs vertexNormalInputs = GetVertexNormalInputs(input.normalOS.xyz, input.tangentOS);
-    
+
     // 世界空间
-    output.positionWSAndFogFactor = float4(vertexPositionInputs.positionWS, ComputeFogFactor(vertexPositionInputs.positionCS.z));
-    output.positionCS = vertexPositionInputs.positionCS;
     output.positionWS = vertexPositionInputs.positionWS;
+    output.positionCS = vertexPositionInputs.positionCS;
     output.tangentWS = vertexNormalInputs.tangentWS;
     output.bitangentWS = vertexNormalInputs.bitangentWS;
     output.normalWS = vertexNormalInputs.normalWS;
@@ -50,7 +47,7 @@ Varyings GenshinStyleVertex(Attributes input)
     // 间接光 with 球谐函数
     output.SH = SampleSH(lerp(vertexNormalInputs.normalWS, float3(0, 0, 0), _IndirectLightFlattenNormal));
 
-    output.ss_pos = ComputeScreenPos(output.positionCS);
+    output.fogFactor = ComputeFogFactor(vertexPositionInputs.positionCS.z);
 
     return output;
 }
@@ -82,6 +79,8 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     float3 indirectLightColor = CalculateGI(mainTexCol.rgb, ilmTexCol.g, input.SH.rgb, _IndirectLightIntensity, _IndirectLightUsage);
     //视线方向
     float3 viewDirectionWS = normalize(GetWorldSpaceViewDir(input.positionWS));
+    // material index
+    float material_id = materialID(ilmTexCol.w);
 
     //获取世界空间法线，如果要采样NormalMap，要使用TBN矩阵变换
     #if _NORMAL_MAP_ON
@@ -96,7 +95,9 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     #endif
 
     float NoV = dot(normalize(normalWS), normalize(GetWorldSpaceViewDir(input.positionWS)));
-    float NoL = dot(normalize(normalWS), normalize(mainLight.direction));
+
+    half aoFactor = ilmTexCol.g * input.vertexColor.r;
+    float shadow = GetShadow(normalWS, lightDirectionWS, aoFactor, shadowAttenuation);
 
     float emissionFactor = 1.0;
     #if defined(_MAINTEXALPHAUSE_EMISSION)
@@ -110,14 +111,12 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
         emissionFactor = 0;
     #endif
 
-//区分面部和身体的渲染    
+//区分面部和身体的渲染
 #if defined(_RENDERTYPE_BODY)
-
-    float remappedNoL = NoL + input.vertexColor.g;
 
     //Diffuse
     half3 diffuseColor = 0;
-    half3 rampTexCol = GetShadowRampColor(ilmTexCol, remappedNoL, shadowAttenuation);
+    half3 rampTexCol = GetShadowRampColor(shadow, ilmTexCol);
     half3 brightAreaColor = rampTexCol * _LightAreaColorTint.rgb;
     //以上获取的Shadow Color颜色对固有阴影的颜色处理不够深，所以通过ShadowColor进一步调色
     half3 darkShadowColor = rampTexCol * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);
@@ -125,12 +124,11 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     half3 ShadowColorTint = lerp(darkShadowColor.rgb, brightAreaColor, _BrightAreaShadowFac);
     diffuseColor = ShadowColorTint * mainTexCol.rgb;
 
-    float material_id = materialID(ilmTexCol.w);
     half3 FinalSpecCol = 0;
     #if _SPECULAR_ON
         float3 half_vector = normalize(viewDirectionWS + mainLight.direction);
         float ndoth = dot(normalWS, half_vector);
-        // SPECULAR : 
+        // SPECULAR :
         float3 specular = (float3)0.0f;
         if(_SpecularHighlights) specular_color(ndoth, ShadowColorTint, ilmTexCol.x, ilmTexCol.z, material_id, specular);
         if(ilmTexCol.x > 0.90f) specular = 0.0f; // making sure the specular doesnt bleed into the metal area
@@ -150,11 +148,11 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     #else
         FinalSpecCol = 0;
     #endif
-    
+
     //边缘光部分
     half3 rimLightColor;
     #if _RIM_LIGHTING_ON
-        rimLightColor = GetRimLight(input.ss_pos, normalWS, input.positionCS, LightColor.rgb, material_id, diffuseColor, viewDirectionWS);
+        rimLightColor = GetRimLight(input.positionCS, normalWS, LightColor.rgb, material_id);
     #else
         rimLightColor = 0;
     #endif
@@ -178,17 +176,20 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
 
     float4 FinalColor = float4(FinalDiffuse, alpha);
     DoClipTestToTargetAlphaValue(FinalColor.a, _AlphaClip);
-    FinalColor.rgb = MixFog(FinalColor.rgb, input.positionWSAndFogFactor.w);
+
+    // Mix Fog
+    real fogFactor = InitializeInputDataFog(float4(input.positionWS, 1.0), input.fogFactor);
+    FinalColor.rgb = MixFog(FinalColor.rgb, fogFactor);
 
     return FinalColor;
-    
+
 #elif defined(_RENDERTYPE_FACE)
 
     // 游戏模型的头骨骼是旋转过的
     float3 headDirWSUp = normalize(-UNITY_MATRIX_M._m00_m10_m20);
     float3 headDirWSRight = normalize(-UNITY_MATRIX_M._m02_m12_m22);
     float3 headDirWSForward = normalize(UNITY_MATRIX_M._m01_m11_m21);
-    
+
     float3 lightDirProj = normalize(lightDirectionWS - dot(lightDirectionWS, headDirWSUp) * headDirWSUp); // 做一次投影
     //光照在左脸的时候。左脸的uv采样左脸，右脸的uv采样右脸，而光照在右脸的时候，左脸的uv采样右脸，右脸的uv采样左脸，因为SDF贴图明暗变化在右脸
     bool isRight = dot(lightDirProj, headDirWSRight) > 0;
@@ -210,8 +211,7 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     float sdfShadow = smoothstep(FoL01 - _FaceShadowTransitionSoftness, FoL01 + _FaceShadowTransitionSoftness, 1 - sdfValue);
     float brightAreaMask = (1 - sdfShadow) * shadowAttenuation;
 
-    float remappedNoL = NoL;
-    half3 rampTexCol = GetShadowRampColor(ilmTexCol, remappedNoL, 1);
+    half3 rampTexCol = GetShadowRampColor(shadow, ilmTexCol);
     //half3 rampTexCol = mainTexCol.rgb;
 
     half3 diffuseColor = 0;
@@ -223,12 +223,10 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     //遮罩贴图的rg通道区分受光照影响的区域和不受影响的区域
     half3 faceDiffuseColor = lerp(mainTexCol.rgb, diffuseColor, ilmTexCol.r);
 
-    float material_id = materialID(ilmTexCol.w);
-
     //边缘光部分
     half3 rimLightColor;
     #if _RIM_LIGHTING_ON
-        rimLightColor = GetRimLight(input.ss_pos, normalWS, input.positionCS, LightColor.rgb, material_id, diffuseColor, viewDirectionWS);
+        rimLightColor = GetRimLight(input.positionCS, normalWS, LightColor.rgb, material_id);
     #else
         rimLightColor = 0;
     #endif
@@ -249,7 +247,10 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
 
     float4 FinalColor = float4(FinalDiffuse, alpha);
     DoClipTestToTargetAlphaValue(FinalColor.a, _AlphaClip);
-    FinalColor.rgb = MixFog(FinalColor.rgb, input.positionWSAndFogFactor.w);
+
+    // Mix Fog
+    real fogFactor = InitializeInputDataFog(float4(input.positionWS, 1.0), input.fogFactor);
+    FinalColor.rgb = MixFog(FinalColor.rgb, fogFactor);
 
     return FinalColor;
 

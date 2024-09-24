@@ -1,6 +1,10 @@
 #ifndef CUSTOM_AVARTAR_SHADERUTILS_INCLUDED
 #define CUSTOM_AVARTAR_SHADERUTILS_INCLUDED
 
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+
 float get_index(float material_id)
 {
     // prevents a returned negative index on certain GPUs
@@ -70,10 +74,16 @@ Light GetCharacterMainLightStruct(float4 shadowCoord, float3 positionWS)
     return light;
 }
 
-float3 GetShadowRampColor(float4 lightmap, float NdotL, float shadowAttenuation)
+half GetShadow(float3 normalWS, half3 lightDirection, half aoFactor, float shadowAttenuation)
 {
-    lightmap.g = lerp(1, smoothstep(0.2, 0.3, lightmap.g), _RampAOLerp);  //lightmap.g
-    float halfLambert = smoothstep(0.0, _GreyFac, NdotL + _DarkFac) * lightmap.g * shadowAttenuation;  //半Lambert
+    half NDotL = dot(normalWS, lightDirection);
+    half halfLambert = smoothstep(0.0, _GreyFac, NDotL + _DarkFac);
+    half shadow = saturate(2.0 * halfLambert * aoFactor) * shadowAttenuation;
+    return lerp(shadow, 1.0, step(0.9, aoFactor));
+}
+
+float3 GetShadowRampColor(float halfLambert, float4 lightmap)
+{
     float brightMask = step(_BrightFac, halfLambert);  //亮面
     //判断白天与夜晚
     float rampSampling = 0.0;
@@ -103,6 +113,38 @@ float3 GetShadowRampColor(float4 lightmap, float NdotL, float shadowAttenuation)
     return shadowRamp;
 }
 
+float3 GetRimLight(float4 positionCS, float3 normalWS, float3 LightColor, float material_id)
+{
+
+    //获取当前片元的深度
+    float linearEyeDepth = LinearEyeDepth(positionCS.z, _ZBufferParams);
+    //根据视线空间的法线采样左边或者右边的深度图
+    float3 normalVS = mul((float3x3)UNITY_MATRIX_V, normalWS);
+    //根据视线空间的法线采样左边或者右边的深度图，根据深度缩放，实现近大远小的效果
+    float2 uvOffset = float2(sign(normalVS.x), 0) * _RimLightWidth / (1 + linearEyeDepth) / 100;
+    int2 loadTexPos = positionCS.xy + uvOffset * _ScaledScreenParams.xy;
+    //限制左右，不采样到边界
+    loadTexPos = min(max(loadTexPos, 0), _ScaledScreenParams.xy - 1);
+    //偏移后的片元深度
+    float offsetSceneDepth = LoadSceneDepth(loadTexPos);
+    //转换为LinearEyeDepth
+    float offsetLinearEyeDepth = LinearEyeDepth(offsetSceneDepth, _ZBufferParams);
+    //深度差超过阈值，表示是边界
+    float rimLight = saturate(offsetLinearEyeDepth - (linearEyeDepth + _RimLightThreshold)) / _RimLightFadeout;
+
+    float4 rim_colors[5] =
+    {
+        _RimColor1, _RimColor2, _RimColor3, _RimColor4, _RimColor5
+    };
+
+    // get rim light color
+    float3 rimLightColor = saturate(rim_colors[get_index(material_id)].rgb * rimLight * _RimLightTintColor);
+    rimLightColor *= saturate(LightColor.rgb);
+    rimLightColor *= _RimLightBrightness;
+
+    return rimLightColor;
+}
+
 float materialID(float alpha)
 {
     float region = alpha;
@@ -117,7 +159,7 @@ float materialID(float alpha)
     return material;
 }
 
-void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold) 
+void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold)
 {
     clip(alpha - alphaTestThreshold);
 }

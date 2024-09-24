@@ -1,169 +1,105 @@
 #ifndef CUSTOM_AVATAR_GENSHIN_OUTLINE_PASS_INCLUDED
 #define CUSTOM_AVATAR_GENSHIN_OUTLINE_PASS_INCLUDED
 
-#include "../ShaderLibrary/AvatarGenshinInput.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+#include "../ShaderLibrary/AvatarShaderUtils.hlsl"
 
-struct vs_in
+struct CharOutlineAttributes
 {
-    float4 vertex  : POSITION;
-    float3 normal  : NORMAL;
-    float4 tangent : TANGENT;
-    float2 uv_0    : TEXCOORD0;
-    float2 uv_1    : TEXCOORD1;
-    float2 uv_2    : TEXCOORD2;
-    float2 uv_3    : TEXCOORD3;
-    float4 v_col   : COLOR0;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-}; 
-
-struct vs_out
-{
-    float4 pos       : SV_POSITION;
-    float3 normal    : NORMAL; // ws normals
-    float4 tangent   : TANGENT; // ws tangents
-    float4 uv_a      : TEXCOORD0; // uv0 and uv1
-    float4 uv_b      : TEXCOORD1; // uv2 and uv3
-    float3 view      : TEXCOORD2; // view vector
-    float4 ws_pos    : TEXCOORD3; // world space position
-    float4 ss_pos    : TEXCOORD4; // screen space position
-    float3 parallax  : TEXCOORD5;
-    float4 light_pos : TEXCOORD6;
-    float4 v_col     : COLOR0; // vertex color 
-    float fogFactor  : TEXCOORD7;
-    UNITY_VERTEX_OUTPUT_STEREO
+    float4 positionOS     : POSITION;
+    float4 color          : COLOR;
+    float3 normalOS       : NORMAL;
+    float4 tangentOS      : TANGENT;
+    float2 uv1            : TEXCOORD0;
+    float2 uv2            : TEXCOORD1;
+    float2 packSmoothNormal : TEXCOORD2;
 };
 
-float4 CombineAndTransformDualFaceUV(float2 uv1, float2 uv2, float4 mapST)
+struct CharOutlineVaryings
 {
-    return float4(uv1, uv2) * mapST.xyxy + mapST.zwzw;
-}
+    float4 positionCS     : SV_POSITION;
+    float4 baseUV         : TEXCOORD0;
+    float4 color          : COLOR;
+    float3 normalWS       : TEXCOORD1;
+    float3 positionWS     : TEXCOORD2;
+    real   fogFactor      : TEXCOORD3;
+};
 
-void SetupDualFaceRendering(inout float3 normalWS, inout float4 uv, FRONT_FACE_TYPE isFrontFace)
+float3 GetSmoothNormalWS(CharOutlineAttributes input)
 {
-    #if defined(_MODEL_GAME)
-        if (IS_FRONT_VFACE(isFrontFace, 1, 0))
-            return;
+    float3 smoothNormalOS = input.normalOS;
 
-        // 游戏内的部分模型用了双面渲染
-        // 渲染背面的时候需要调整一些值，这样就不需要修改之后的计算了
-
-        // 反向法线
-        normalWS *= -1;
-
-        // 交换 uv1 和 uv2
-        #if defined(_BACKFACEUV2_ON)
-            uv.xyzw = uv.zwxy;
-        #endif
+    #ifdef _OUTLINENORMALCHANNEL_NORMAL
+        smoothNormalOS = input.normalOS;
+    #elif _OUTLINENORMALCHANNEL_TANGENT
+        smoothNormalOS = input.tangentOS.xyz;
+    #elif _OUTLINENORMALCHANNEL_UV2
+        float3 normalOS = normalize(input.normalOS);
+        float3 tangentOS = normalize(input.tangentOS.xyz);
+        float3 bitangentOS = normalize(cross(normalOS, tangentOS) * (input.tangentOS.w * GetOddNegativeScale()));
+        float3 smoothNormalTS = UnpackNormalOctQuadEncode(input.packSmoothNormal);
+        smoothNormalOS = mul(smoothNormalTS, float3x3(tangentOS, bitangentOS, normalOS));
     #endif
+
+    return TransformObjectToWorldNormal(smoothNormalOS);
 }
 
-float materialID(float alpha)
+float GetOutlineWidth(float positionVS_Z)
 {
-    float region = alpha;
+    float fovFactor = 2.414 / UNITY_MATRIX_P[1].y;
+    float z = abs(positionVS_Z * fovFactor);
 
-    float material = 1.0f;
+    float4 params = _OutlineWidthParams;
+    float k = saturate((z - params.x) / (params.y - params.x));
+    float width = lerp(params.z, params.w, k);
 
-    material = ((region >= 0.8f)) ? 2.0f : 1.0f;
-    material = ((region >= 0.4f && region <= 0.6f)) ? 3.0f : material;
-    material = ((region >= 0.2f && region <= 0.4f)) ? 4.0f : material;
-    material = ((region >= 0.6f && region <= 0.8f)) ? 5.0f : material;
-
-    return material;
+    return 0.01 * _OutlineWidth * _OutlineScale * width;
 }
 
-void DoClipTestToTargetAlphaValue(float alpha, float alphaTestThreshold) 
+float4 GetOutlinePosition(VertexPositionInputs vertexInput, float3 normalWS, half4 vertexColor)
 {
-    clip(alpha - alphaTestThreshold);
+    float z = vertexInput.positionVS.z;
+    float width = GetOutlineWidth(z) * vertexColor.a;
+
+    half3 normalVS = TransformWorldToViewNormal(normalWS);
+    normalVS = SafeNormalize(half3(normalVS.xy, 0.0));
+
+    float3 positionVS = vertexInput.positionVS;
+    positionVS += 0.01 * _OutlineZOffset * SafeNormalize(positionVS);
+    positionVS += width * normalVS;
+
+    float4 positionCS = TransformWViewToHClip(positionVS);
+    positionCS.xy += _ScreenOffset.zw * positionCS.w;
+
+    return positionCS;
 }
 
-vs_out BackFaceOutlineVertex(vs_in v)
+CharOutlineVaryings BackFaceOutlineVertex(CharOutlineAttributes input)
 {
-    VertexPositionInputs vertexPositionInput = GetVertexPositionInputs(v.vertex.xyz);
-    VertexNormalInputs normalInput = GetVertexNormalInputs(v.normal, v.tangent);
+    CharOutlineVaryings output;
 
-    vs_out o = (vs_out)0.0f; // cast all output values to zero to prevent potential errors
-    if(_OutlineType ==  0.0f || _EnableOutlineToggle == 0.0f)
-    {
-        vs_out o = (vs_out)0.0f;
-    }
-    else
-    {
-        float3 outline_normal = (_OutlineType == 1.0) ? v.normal : v.tangent.xyz;
-        float4 wv_pos = mul(UNITY_MATRIX_MV, v.vertex);
-        float3 view = _WorldSpaceCameraPos.xyz - (float3)mul(v.vertex, unity_ObjectToWorld);
-        o.view = normalize(view);
-        float3 ws_normal = mul(outline_normal, (float3x3)unity_ObjectToWorld);
+    VertexPositionInputs vertexPositionInput = GetVertexPositionInputs(input.positionOS.xyz);
+    VertexNormalInputs vertexNormalInput = GetVertexNormalInputs(input.normalOS);
 
-        outline_normal = mul((float3x3)UNITY_MATRIX_MV, outline_normal);
-        outline_normal.z = 0.01f;
-        outline_normal.xy = normalize(outline_normal.xyz).xy;
+    float3 smoothNormalWS = GetSmoothNormalWS(input);
+    float4 positionCS = GetOutlinePosition(vertexPositionInput, smoothNormalWS, input.color);
 
-        if(!_FallbackOutlines)
-        {
-            float fov_matrix = unity_CameraProjection[1].y;
+    output.baseUV = CombineAndTransformDualFaceUV(input.uv1, input.uv2, 1);
+    output.color = input.color;
+    output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
+    output.normalWS = vertexNormalInput.normalWS;
+    output.positionCS = positionCS;
 
-            float fov = 2.414f / fov_matrix; // may need to come back in and change this back to 1.0f
-            // can't remember in what vrchat mode this was messing up 
+    output.fogFactor = ComputeFogFactor(vertexPositionInput.positionCS.z);
 
-            float depth = -wv_pos.z * fov;
-
-            float2 adjs = (depth <  _OutlineWidthAdjustZs.y) ? _OutlineWidthAdjustZs.xy : _OutlineWidthAdjustZs.yz; 
-            float2 scales = (depth <  _OutlineWidthAdjustZs.y) ? _OutlineWidthAdjustScales.xy : _OutlineWidthAdjustScales.yz; 
-            
-            float z_scale = depth + -(adjs.x);
-            float2 z_something = float2((-adjs.x) + adjs.y, (-scales.x) + scales.y);
-            z_something.x = max(z_something.x, 0.001f);
-            z_scale = z_scale / z_something.x;
-            z_scale = saturate(z_scale);
-            z_scale = z_scale * z_something.y + scales.x;
-
-            // the next 5 or so lines could be written in one line like the above 
-            float outline_scale = (_OutlineWidth * 1.5f) * z_scale;
-            outline_scale = outline_scale * 100.0f;
-            outline_scale = outline_scale * _Scale;
-            outline_scale = outline_scale * 0.414f;
-            outline_scale = outline_scale * v.v_col.w;
-            if(_UseFaceOutline) outline_scale = outline_scale * _FaceMapTex.SampleLevel(sampler_FaceMapTex, v.uv_0.xy, 0.0f).z;
-
-            float offset_depth = saturate(1.0f - depth);
-            float max_offset = lerp(_MaxOutlineZOffset * 0.1, _MaxOutlineZOffset, offset_depth);
-
-            float3 z_offset = (wv_pos.xyz) * (float3)max_offset * (float3)_Scale;
-            // the above version of the line causes a floating point division by zero warning in unity even though it didnt used to do that
-            // but it probably has something to do with the instancing support v added
-
-            float blue = v.v_col.z + -0.5f; // never trust this fucking line
-            // it always breaks things
-
-            o.pos = wv_pos;
-            o.pos.xyz = (o.pos.xyz + (z_offset)) + (outline_normal.xyz * outline_scale);
-        }
-        else
-        {
-            o.pos = wv_pos;
-            o.pos.xyz = o.pos.xyz + (outline_normal.xyz * (_OutlineWidth * 100.0f * _Scale * 0.414f * v.v_col.w));
-        }
-
-        o.ws_pos = o.pos;
-        
-        o.pos = mul(UNITY_MATRIX_P, o.pos);
-        o.ss_pos = ComputeScreenPos(o.pos);
-        o.normal = normalize(ws_normal);
-        o.uv_a = CombineAndTransformDualFaceUV(v.uv_0, v.uv_1, 1);
-        o.v_col = v.v_col;
-    }
-
-    o.fogFactor = ComputeFogFactor(vertexPositionInput.positionCS.z);
-
-    return o;
+    return output;
 }
 
-half4 BackFaceOutlineFragment(vs_out input, FRONT_FACE_TYPE isFrontFace : FRONT_FACE_SEMANTIC) : SV_Target
+half4 BackFaceOutlineFragment(CharOutlineVaryings input, FRONT_FACE_TYPE isFrontFace : FRONT_FACE_SEMANTIC) : SV_Target
 {
-    SetupDualFaceRendering(input.normal, input.uv_a, isFrontFace);
-
     //根据ilmTexture的五个分组区分出五个不同颜色的描边区域
-    half outlineColorMask = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.uv_a.xy).a;
+    half outlineColorMask = SAMPLE_TEXTURE2D(_ilmTex, sampler_ilmTex, input.baseUV.xy).a;
     float material_id = materialID(outlineColorMask);
 
     float4 outline_colors[5] = 
@@ -182,7 +118,10 @@ half4 BackFaceOutlineFragment(vs_out input, FRONT_FACE_TYPE isFrontFace : FRONT_
 
     float4 FinalColor = float4(finalOutlineColor, alpha);
     DoClipTestToTargetAlphaValue(FinalColor.a, _AlphaClip);
-    FinalColor.rgb = MixFog(FinalColor.rgb, input.fogFactor);
+
+    // Mix Fog
+    real fogFactor = InitializeInputDataFog(float4(input.positionWS, 1.0), input.fogFactor);
+    FinalColor.rgb = MixFog(FinalColor.rgb, fogFactor);
 
     return float4(FinalColor.rgb, 1);
 }

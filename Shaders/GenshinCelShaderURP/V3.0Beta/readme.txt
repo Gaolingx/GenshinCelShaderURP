@@ -1,1 +1,0 @@
-欢迎来到GenshinCelShaderURP V3.0Beta版本，此次更新移除了 #pragma shader_feature _SHADERENUM_BASE _SHADERENUM_HAIR _SHADERENUM_FACE，但重点优化了ramp采样和漫反射部分片元着色器，增加了更多可调参数，旨在更加精细地控制硬边和支持分别控制明暗区域的亮度和颜色，包括lambert，ao，lerp强度等等都是可以自行控制的，并做了相应的平滑过渡色阶边缘，唯一麻烦点的就是调参会稍微麻烦亿点，下一步计划研究用什么样的trick去实现原神随视角变化的头发高光（各向异性高光）。

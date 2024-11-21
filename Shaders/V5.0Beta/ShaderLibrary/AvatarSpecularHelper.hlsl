@@ -3,7 +3,7 @@
 
 #include "../ShaderLibrary/AvatarShaderUtils.hlsl"
 
-void metalics(in float3 shadow, in float3 normal, float3 ndoth, float speculartex, float backfacing, inout float3 color)
+void metalics(in float3 shadow, in float3 normal, float3 ndoth, float speculartex, inout float3 color)
 {
     float shadow_transition = ((bool)shadow.y) ? shadow.z : 0.0f;
     shadow_transition = saturate(shadow_transition);
@@ -83,23 +83,6 @@ void specular_color(in float ndoth, in float3 shadow, in float lightmapspec, in 
     float check = term > (-lightmaparea + 1.015);
     specular = term * (spec_color_array[get_index(material_id)] * spec_array[get_index(material_id)].y) * lightmapspec; 
     specular = lerp((float3)0.0f, specular * (float3)0.5f, check);
-}
-
-float3 ApplySpecularOpacity(float3 out_color, float3 specular, float material_id)
-{
-    float spec_array[5] =
-    {
-        float(_SpecOpacity),
-        float(_SpecOpacity2),
-        float(_SpecOpacity3),
-        float(_SpecOpacity4),
-        float(_SpecOpacity5),        
-    };
-    float3 spec_color = out_color.xyz + (float3)-1.0f;
-    spec_color.xyz = (spec_array[get_index(material_id)]) * spec_color.xyz + (float3)1.0f;
-    spec_color.xyz = spec_color.xyz * specular;
-
-    return spec_color;
 }
 
 #endif

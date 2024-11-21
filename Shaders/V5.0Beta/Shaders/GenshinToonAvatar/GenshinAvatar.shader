@@ -82,11 +82,6 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _SpecMulti3 ("Specular Multiplier 3", Float) = 0.1
         _SpecMulti4 ("Specular Multiplier 4", Float) = 0.1
         _SpecMulti5 ("Specular Multiplier 5", Float) = 0.1
-        _SpecOpacity ("Specular Opacity 1", Float) = 0.1
-        _SpecOpacity2 ("Specular Opacity 2", Float) = 0.1
-        _SpecOpacity3 ("Specular Opacity 3", Float) = 0.1
-        _SpecOpacity4 ("Specular Opacity 4", Float) = 0.1
-        _SpecOpacity5 ("Specular Opacity 5", Float) = 0.1
         _SpecularColor ("Specular Color 1", Color) = (1.0, 1.0, 1.0, 1.0)
         _SpecularColor2 ("Specular Color 2", Color) = (1.0, 1.0, 1.0, 1.0)
         _SpecularColor3 ("Specular Color 3", Color) = (1.0, 1.0, 1.0, 1.0)
@@ -132,45 +127,40 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         _OutlineZOffset("Outline Z Offset", Float) = 0
         _ScreenOffset("Screen Offset", Vector) = (0, 0, 0, 0)
 
-        [Header(Debug)]
-        _DebugValue01("Debug Value 0-1", Range(0.0, 1.0)) = 0.0
-
         [Header(Surface Options)]
         [Enum(UnityEngine.Rendering.CullMode)] _CullMode("Cull Mode (Default Back)", Float) = 2
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlendModeColor("Core Pass src blend mode color (Default One)", Float) = 1
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendModeColor("Core Pass dst blend mode color (Default Zero)", Float) = 0
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlendModeAlpha("Core Pass src blend mode alpha (Default One)", Float) = 1
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendModeAlpha("Core Pass dst blend mode alpha (Default Zero)", Float) = 0
-        [Enum(UnityEngine.Rendering.BlendOp)] _BlendOp("BlendOp (Default Add)", Float) = 0
         [Enum(Off, 0, On, 1)] _ZWrite("ZWrite (Default On)", Float) = 1
 
-
     }
+
     SubShader
     {
         HLSLINCLUDE
         #include "../../ShaderLibrary/AvatarGenshinInput.hlsl"
         ENDHLSL
+
         Tags
         {
-            "RenderPipeline"="UniversalPipeline"
-            "RenderType"="Opaque"
-            "Queue"="Geometry"
+            "RenderPipeline" = "UniversalPipeline"
+            "RenderType" = "Opaque"
+            "Queue" = "Geometry"
         }
-        LOD 100
 
         Pass
         {
-            Name "GenshinCharacterBasicPass"
+            Name "GenshinCharacter_CorePass"
             Tags
             {
-                "LightMode"="UniversalForward"
+                "LightMode" = "UniversalForward"
             }
 
-            Cull [_CullMode]
-            Blend [_SrcBlendModeColor] [_DstBlendModeColor], [_SrcBlendModeAlpha] [_DstBlendModeAlpha]
-            BlendOp [_BlendOp]
-            ZWrite [_ZWrite]
+            Cull[_CullMode]
+            Blend[_SrcBlendModeColor] [_DstBlendModeColor], [_SrcBlendModeAlpha] [_DstBlendModeAlpha]
+            ZWrite[_ZWrite]
 
             HLSLPROGRAM
             #pragma vertex GenshinStyleVertex
@@ -199,13 +189,15 @@ Shader "GenshinCelShaderURP/V5.0Beta"
 
         Pass
         {
-            Name "BackFacingOutline"
-            Cull Front // Cull Front is a must for extra pass outline method
-            ZWrite [_ZWrite]
+            Name "GenshinCharacter_BackFacingOutline"
             Tags
             {
-                "LightMode"="SRPDefaultUnlit"
+                "LightMode" = "SRPDefaultUnlit"
             }
+
+            Cull Front // Cull Front is a must for extra pass outline method
+            ZWrite[_ZWrite]
+
             HLSLPROGRAM
             #pragma vertex BackFaceOutlineVertex
             #pragma fragment BackFaceOutlineFragment
@@ -223,94 +215,133 @@ Shader "GenshinCelShaderURP/V5.0Beta"
         Pass
         {
             Name "ShadowCaster"
-            Tags{"LightMode" = "ShadowCaster"}
+            Tags
+            {
+                "LightMode" = "ShadowCaster"
+            }
 
+            // -------------------------------------
+            // Render State Commands
             ZWrite On
             ZTest LEqual
             ColorMask 0
             Cull[_CullMode]
 
             HLSLPROGRAM
-            #pragma only_renderers gles gles3 glcore d3d11
             #pragma target 2.0
+
+            // -------------------------------------
+            // Shader Stages
+            #pragma vertex ShadowPassVertex
+            #pragma fragment ShadowPassFragment
+
+            // -------------------------------------
+            // Material Keywords
+            #pragma shader_feature_local _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
 
             //--------------------------------------
             // GPU Instancing
             #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
             // -------------------------------------
-            // Material Keywords
-            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            // Universal Pipeline keywords
 
+            // -------------------------------------
+            // Unity defined keywords
+            #pragma multi_compile_fragment _ LOD_FADE_CROSSFADE
+
+            // This is used during shadow map generation to differentiate between directional and punctual light shadows, as they use different formulas to apply Normal Bias
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
 
-            #pragma vertex ShadowPassVertex
-            #pragma fragment ShadowPassFragment
-
+            // -------------------------------------
+            // Includes
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
-
             ENDHLSL
         }
 
         Pass
         {
             Name "DepthOnly"
-            Tags{"LightMode" = "DepthOnly"}
+            Tags
+            {
+                "LightMode" = "DepthOnly"
+            }
 
-            Cull[_CullMode]
+            // -------------------------------------
+            // Render State Commands
             ZWrite On
-            ColorMask 0
+            ColorMask R
 
             HLSLPROGRAM
-            #pragma exclude_renderers gles gles3 glcore
-            #pragma target 4.5
+            #pragma target 2.0
 
+            // -------------------------------------
+            // Shader Stages
             #pragma vertex DepthOnlyVertex
             #pragma fragment DepthOnlyFragment
 
             // -------------------------------------
             // Material Keywords
-            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local _ALPHATEST_ON
+
+            // -------------------------------------
+            // Unity defined keywords
+            #pragma multi_compile_fragment _ LOD_FADE_CROSSFADE
 
             //--------------------------------------
             // GPU Instancing
             #pragma multi_compile_instancing
-            #pragma multi_compile _ DOTS_INSTANCING_ON
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            // -------------------------------------
+            // Includes
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
-
             ENDHLSL
         }
 
         Pass
         {
             Name "DepthNormalsOnly"
-            Tags{"LightMode" = "DepthNormalsOnly"}
+            Tags
+            {
+                "LightMode" = "DepthNormalsOnly"
+            }
 
+            // -------------------------------------
+            // Render State Commands
             ZWrite On
-            Cull[_CullMode]
 
             HLSLPROGRAM
-            #pragma exclude_renderers gles gles3 glcore
-            #pragma target 4.5
+            #pragma target 2.0
 
+            // -------------------------------------
+            // Shader Stages
             #pragma vertex DepthNormalsVertex
             #pragma fragment DepthNormalsFragment
 
             // -------------------------------------
-            // Unity defined keywords
+            // Material Keywords
+            #pragma shader_feature_local _ALPHATEST_ON
+
+            // -------------------------------------
+            // Universal Pipeline keywords
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT // forward-only variant
+            #pragma multi_compile_fragment _ LOD_FADE_CROSSFADE
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
 
             //--------------------------------------
             // GPU Instancing
             #pragma multi_compile_instancing
-            #pragma multi_compile _ DOTS_INSTANCING_ON
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitDepthNormalsPass.hlsl"
-
+            // -------------------------------------
+            // Includes
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/UnlitDepthNormalsPass.hlsl"
             ENDHLSL
         }
     }

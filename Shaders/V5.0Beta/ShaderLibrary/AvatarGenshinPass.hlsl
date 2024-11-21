@@ -99,14 +99,19 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     half aoFactor = ilmTexCol.g * input.vertexColor.r;
     float shadow = GetShadow(normalWS, lightDirectionWS, aoFactor, shadowAttenuation);
 
-    float emissionFactor = 1.0;
-    #if defined(_MAINTEXALPHAUSE_EMISSION)
-        emissionFactor = _EmissionScaler * mainTexCol.a;
-    #elif defined(_MAINTEXALPHAUSE_FLICKER)
-        emissionFactor = _EmissionScaler * mainTexCol.a * (0.5 * sin(_Time.y) + 0.5);
-    #elif defined(_MAINTEXALPHAUSE_ALPHATEST)
-        DoClipTestToTargetAlphaValue(mainTexCol.a, _MainTexCutOff);
-        emissionFactor = 0;
+    float emissionFactor = 1;
+    //判断emission是否开启
+    #if _EMISSION_ON
+        #if defined(_MAINTEXALPHAUSE_EMISSION)
+            emissionFactor = _EmissionScaler * mainTexCol.a;
+        #elif defined(_MAINTEXALPHAUSE_FLICKER)
+            emissionFactor = _EmissionScaler * mainTexCol.a * (0.5 * sin(_Time.y) + 0.5);
+        #elif defined(_MAINTEXALPHAUSE_ALPHATEST)
+            DoClipTestToTargetAlphaValue(mainTexCol.a, _MainTexCutOff);
+            emissionFactor = 0;
+        #else
+            emissionFactor = 0;
+        #endif
     #else
         emissionFactor = 0;
     #endif
@@ -120,55 +125,34 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     half3 brightAreaColor = rampTexCol * _LightAreaColorTint.rgb;
     //以上获取的Shadow Color颜色对固有阴影的颜色处理不够深，所以通过ShadowColor进一步调色
     half3 darkShadowColor = rampTexCol * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);
-
     half3 ShadowColorTint = lerp(darkShadowColor.rgb, brightAreaColor, _BrightAreaShadowFac);
-    diffuseColor = ShadowColorTint * mainTexCol.rgb;
 
-    half3 FinalSpecCol = 0;
+    half3 specular = (float3)0.0f;
     #if _SPECULAR_ON
         float3 half_vector = normalize(viewDirectionWS + mainLight.direction);
         float ndoth = dot(normalWS, half_vector);
         // SPECULAR :
-        float3 specular = (float3)0.0f;
         if(_SpecularHighlights) specular_color(ndoth, ShadowColorTint, ilmTexCol.x, ilmTexCol.z, material_id, specular);
         if(ilmTexCol.x > 0.90f) specular = 0.0f; // making sure the specular doesnt bleed into the metal area
         // METALIC :
-        float frontFace = 1;
-        if (IS_FRONT_VFACE(isFrontFace, 1, 0) == 1)
-        {
-            frontFace = 1;
-        }
-        else
-        {
-            frontFace = 0;
-        }
-        if(_MetalMaterial) metalics(ShadowColorTint, normalWS, ndoth, ilmTexCol.x, frontFace, diffuseColor.xyz);
-
-        FinalSpecCol = specular;
-    #else
-        FinalSpecCol = 0;
+        if(_MetalMaterial) metalics(ShadowColorTint, normalWS, ndoth, ilmTexCol.x, mainTexCol.xyz);
     #endif
+
+    diffuseColor = ShadowColorTint * mainTexCol.rgb;
 
     //边缘光部分
-    half3 rimLightColor;
+    half3 rimLightColor = 0;
     #if _RIM_LIGHTING_ON
         rimLightColor = GetRimLight(input.positionCS, normalWS, LightColor.rgb, material_id);
-    #else
-        rimLightColor = 0;
     #endif
 
-    //判断emission是否开启
-    #if _EMISSION_ON != 1
-        emissionFactor = 0;
-    #endif
     half3 emissionColor = lerp(_EmissionTintColor.rgb, mainTexCol.rgb, _EmissionMixBaseColorFac) * emissionFactor;
 
     //最终的合成
     float3 FinalDiffuse = 0;
     FinalDiffuse += indirectLightColor;
     FinalDiffuse += diffuseColor;
-    FinalDiffuse += FinalSpecCol;
-    FinalDiffuse += ApplySpecularOpacity(FinalDiffuse, FinalSpecCol, ilmTexCol.a);
+    FinalDiffuse += specular;
     FinalDiffuse += rimLightColor;
     FinalDiffuse += emissionColor;
 
@@ -215,26 +199,20 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     //half3 rampTexCol = mainTexCol.rgb;
 
     half3 diffuseColor = 0;
-    half3 brightAreaColor = rampTexCol.rgb * _LightAreaColorTint.rgb;
-    half3 shadowAreaColor = rampTexCol.rgb * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);
+    half3 brightAreaColor = rampTexCol * _LightAreaColorTint.rgb;
+    half3 darkShadowColor = rampTexCol * lerp(_DarkShadowColor.rgb, _CoolDarkShadowColor.rgb, _UseCoolShadowColorOrTex);
+    half3 ShadowColorTint = lerp(darkShadowColor, brightAreaColor, brightAreaMask);
 
-    half3 ShadowColorTint = lerp(shadowAreaColor, brightAreaColor, brightAreaMask);
     diffuseColor = ShadowColorTint * mainTexCol.rgb;
     //遮罩贴图的rg通道区分受光照影响的区域和不受影响的区域
     half3 faceDiffuseColor = lerp(mainTexCol.rgb, diffuseColor, ilmTexCol.r);
 
     //边缘光部分
-    half3 rimLightColor;
+    half3 rimLightColor = 0;
     #if _RIM_LIGHTING_ON
         rimLightColor = GetRimLight(input.positionCS, normalWS, LightColor.rgb, material_id);
-    #else
-        rimLightColor = 0;
     #endif
 
-    //判断emission是否开启
-    #if _EMISSION_ON != 1
-        emissionFactor = 0;
-    #endif
     half3 emissionColor = lerp(_EmissionTintColor.rgb, mainTexCol.rgb, _EmissionMixBaseColorFac) * emissionFactor;
 
     float3 FinalDiffuse = 0;

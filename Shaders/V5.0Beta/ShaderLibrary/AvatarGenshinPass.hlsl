@@ -143,7 +143,11 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     //边缘光部分
     half3 rimLightColor = 0;
     #if _RIM_LIGHTING_ON
-        rimLightColor = GetRimLight(input.positionCS, normalWS, LightColor.rgb, material_id);
+        // 背面不渲染边缘光
+        if (IS_FRONT_VFACE(isFrontFace, 1, 0))
+        {
+            rimLightColor = GetRimLight(input.positionCS, normalWS, LightColor.rgb, material_id);
+        }
     #endif
 
     half3 emissionColor = lerp(_EmissionTintColor.rgb, mainTexCol.rgb, _EmissionMixBaseColorFac) * emissionFactor;
@@ -210,7 +214,11 @@ half4 GenshinStyleFragment(Varyings input, FRONT_FACE_TYPE isFrontFace : FRONT_F
     //边缘光部分
     half3 rimLightColor = 0;
     #if _RIM_LIGHTING_ON
-        rimLightColor = GetRimLight(input.positionCS, normalWS, LightColor.rgb, material_id);
+        // 背面不渲染边缘光
+        if (IS_FRONT_VFACE(isFrontFace, 1, 0))
+        {
+            rimLightColor = GetRimLight(input.positionCS, normalWS, LightColor.rgb, material_id);
+        }
     #endif
 
     half3 emissionColor = lerp(_EmissionTintColor.rgb, mainTexCol.rgb, _EmissionMixBaseColorFac) * emissionFactor;
